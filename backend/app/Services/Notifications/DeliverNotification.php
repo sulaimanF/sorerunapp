@@ -67,7 +67,7 @@ class DeliverNotification
         }
         try {
             $notification = $delivery->type === 'email_verification'
-                ? new VerifyMembershipEmail(app(EmailVerificationUrl::class)->forUser($user))
+                ? new VerifyMembershipEmail(app(EmailVerificationUrl::class)->forBrowser($user))
                 : new MembershipActivated((string) $user->membership->member_number);
             Notification::sendNow($user, $notification);
         } catch (Throwable) {

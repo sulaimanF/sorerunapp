@@ -277,3 +277,12 @@ Penyelesaian memakai kondisi id+processing+attempt_count+lease_until. Worker lam
 Recipient, status, email, dan auth_version dibaca saat worker berjalan. Delivery yang tidak relevan/akun unavailable dibatalkan dengan kode terkontrol. Error provider disimpan sebagai MAIL_SEND_FAILED, tanpa teks exception, credential SMTP, URL verifikasi, atau QR. Mailer `log` ditolak untuk mencegah signed URL masuk log. Mailer array hanya untuk APP_ENV=testing; tahap ini mendukung SMTP untuk email sungguhan atau Mailpit lokal. Pemilihan provider go-live tetap tahap tersendiri.
 
 Jangan catat query signed URL atau response kartu di access log/analytics. Saat go-live, konfigurasi access log web server hanya path tanpa query string dan redaksi body/header rahasia. Jangan ekspor Postman environment yang sudah berisi tautan aktif.
+
+
+## Tahap 06 — navigasi verifikasi frontend
+
+Email verifikasi baru membuka FRONTEND_URL/verify-email dengan signed API URL di fragment #verification=. Laravel tetap membuat signed URL API melalui forUser(); forBrowser() hanya membungkusnya untuk navigasi browser. Fragment tidak dikirim ke server Next.js. Frontend memvalidasi origin/path/query, menghapus fragment dari address bar, menyimpan intent hanya di memori tab, meminta login pemilik bila perlu, lalu GET ke signed API URL setelah konfirmasi pengguna. Tidak ada signature di router query, localStorage, sessionStorage, atau Query key. Reload sesudah fragment dihapus mengharuskan pengguna membuka kembali email.
+
+forUser(), TTL 60 menit, authenticated owner, hash email/version, dan transaksi aktivasi tetap berlaku. Email lama dengan URL API langsung tetap valid selama belum kedaluwarsa. Setelah upgrade, restart queue worker dan gunakan email baru untuk mencoba alur browser. Postman tahap 05 diperbarui untuk mengekstrak URL API dari format email lama maupun fragment baru.
+
+CORS mengekspos Retry-After dan X-Request-ID agar browser dapat menampilkan cooldown/support ID yang sudah diberikan API. Origin/credentials tetap dibatasi seperti sebelumnya. Tidak ada endpoint atau migration baru. Kartu tetap hanya tersedia melalui API privat; frontend merender credential asli menjadi SVG QR hitam-putih dengan quiet zone empat modul, tanpa mengirim data kartu melalui SSR.

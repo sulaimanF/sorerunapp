@@ -1,20 +1,21 @@
 import axios from "axios";
-
-const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-if (!baseURL) {
-  throw new Error("NEXT_PUBLIC_API_BASE_URL belum dikonfigurasi.");
-}
+import { apiOrigin } from "./config";
+import { normalizeApiError } from "./errors";
 
 export const api = axios.create({
-  baseURL,
-  timeout: 15_000,
+  timeout: 20_000,
   withCredentials: true,
   withXSRFToken: true,
-  headers: {
-    Accept: "application/json",
-  },
+  headers: { Accept: "application/json" },
 });
+api.interceptors.request.use((request) => {
+  request.baseURL = apiOrigin();
+  return request;
+});
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => Promise.reject(normalizeApiError(error)),
+);
 
 export async function initializeCsrf(): Promise<void> {
   await api.get("/sanctum/csrf-cookie");

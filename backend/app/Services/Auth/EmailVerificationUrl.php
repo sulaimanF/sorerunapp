@@ -29,4 +29,18 @@ class EmailVerificationUrl
             'id' => $user->id, 'hash' => sha1($user->email), 'v' => $user->auth_version,
         ]);
     }
+
+    public function forBrowser(User $user): string
+    {
+        $root = (string) config('sorerunapp.frontend_url');
+        $parts = parse_url($root);
+        if ($parts === false || ! in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+            || empty($parts['host']) || isset($parts['query']) || isset($parts['fragment'])
+            || isset($parts['user']) || isset($parts['pass']) || ! in_array($parts['path'] ?? '', ['', '/'], true)) {
+            throw new ApiProblem('EMAIL_CONFIGURATION_UNAVAILABLE', 'Konfigurasi email belum tersedia.', 503);
+        }
+
+        // A browser fragment is not sent to the frontend HTTP server or its access log.
+        return rtrim($root, '/').'/verify-email#verification='.rawurlencode($this->forUser($user));
+    }
 }
