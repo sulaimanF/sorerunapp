@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\Auth\LoginMemberController;
 use App\Http\Controllers\Api\V1\Auth\LogoutMemberController;
 use App\Http\Controllers\Api\V1\Auth\RegisterMemberController;
 use App\Http\Controllers\Api\V1\Auth\ResendVerificationEmailController;
+use App\Http\Controllers\Api\V1\Members\ShowMemberProfileController;
+use App\Http\Controllers\Api\V1\Members\UpdateMemberProfileController;
 use App\Http\Controllers\Api\V1\Memberships\MembershipCardController;
 use App\Http\Middleware\EnsureCurrentBrowserSession;
 use App\Http\Middleware\RequireBrowserSession;
@@ -26,6 +28,8 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware([RequireBrowserSession::class, 'auth:sanctum', EnsureCurrentBrowserSession::class])->group(function (): void {
         Route::post('/auth/email-verification/resend', ResendVerificationEmailController::class)->middleware('throttle:verification-resend')->name('api.v1.auth.email-verification.resend');
+        Route::get('/me/profile', ShowMemberProfileController::class)->name('api.v1.me.profile.show');
+        Route::patch('/me/profile', UpdateMemberProfileController::class)->middleware('throttle:60,1')->name('api.v1.me.profile.update');
         Route::get('/me/membership/card', MembershipCardController::class)->name('api.v1.me.membership.card');
         Route::get('/auth/me', CurrentMemberController::class)->name('api.v1.auth.me');
         Route::post('/auth/logout', LogoutMemberController::class)->name('api.v1.auth.logout');

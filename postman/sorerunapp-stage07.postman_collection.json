@@ -1,0 +1,798 @@
+{
+  "info": {
+    "_postman_id": "80cce497-5a62-43a8-b4c9-6b1cb089300a",
+    "name": "sorerunapp — Tahap 07 Profil Anggota",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Khusus API lokal dan akun uji sintetis yang sudah terdaftar. Request 05 mengubah biodata akun yang login. Tidak membuat akun atau mengirim data ke pihak lain. Gunakan berurutan."
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "['api_base_url','frontend_origin','test_email','test_password'].forEach(function (key) {",
+          "  if (!pm.environment.get(key)) throw new Error('Isi environment tahap 07: ' + key);",
+          "});",
+          "if (pm.environment.get('api_base_url') !== 'http://localhost:8000' || pm.environment.get('frontend_origin') !== 'http://localhost:3000') {",
+          "  throw new Error('Koleksi ini khusus lokal: localhost:8000 dan localhost:3000.');",
+          "}",
+          "pm.variables.set('src_profile_login', JSON.stringify({email:pm.environment.get('test_email'),password:pm.environment.get('test_password')}));",
+          "pm.variables.set('src_profile_patch', JSON.stringify({full_name:'Anggota Profil Postman',birth_date:'2012-02-29',phone:'081234567890',city:'Kota Postman',gender:null}));"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const url = pm.variables.replaceIn(pm.request.url.toString());",
+          "if (url.indexOf(pm.environment.get('api_base_url') + '/api/') === 0) {",
+          "  pm.test('API privat memakai no-store', function () { pm.expect(pm.response.headers.get('Cache-Control') || '').to.include('no-store'); });",
+          "  if (pm.response.code !== 204) {",
+          "    const body = pm.response.json();",
+          "    pm.test('request_id konsisten', function () { pm.expect(body.meta.request_id).to.match(/^[0-9a-f-]{36}$/i); pm.expect(pm.response.headers.get('X-Request-ID')).to.equal(body.meta.request_id); });",
+          "    if (pm.response.code >= 400) pm.test('Error tidak membocorkan detail internal', function () { pm.expect(body.error.code).to.be.a('string'); pm.expect(body).not.to.have.property('exception'); pm.expect(body).not.to.have.property('trace'); });",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "src_profile_member_number",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Ambil CSRF",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          }
+        ],
+        "url": "{{api_base_url}}/sanctum/csrf-cookie"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 204', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "02 - Login akun uji yang sudah terdaftar",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{{src_profile_login}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) pm.test('Email sesuai akun uji', function () { pm.expect(pm.response.json().data.user.email).to.equal(pm.environment.get('test_email').trim().toLowerCase()); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "03 - Snapshot nomor member",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) pm.collectionVariables.set('src_profile_member_number', pm.response.json().data.membership?.member_number || '');"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "04 - Baca profil sendiri",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) pm.test('Profil memakai whitelist', function () { pm.expect(Object.keys(pm.response.json().data).sort()).to.eql(['full_name','birth_date','phone','city','gender','profile_complete','updated_at'].sort()); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "05 - Perbarui biodata akun uji",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{{src_profile_patch}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) {",
+              " const data=pm.response.json().data;",
+              " pm.test('Biodata tersimpan dan telepon dinormalisasi', function () { pm.expect(data.full_name).to.equal('Anggota Profil Postman'); pm.expect(data.birth_date).to.equal('2012-02-29'); pm.expect(data.phone).to.equal('+6281234567890'); pm.expect(data.gender).to.equal(null); pm.expect(data.profile_complete).to.equal(true); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "06 - Nama sesi terbaru dan nomor tetap",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) pm.test('Nama sesi baru, nomor lama tetap', function () {",
+              " const data=pm.response.json().data; pm.expect(data.user.full_name).to.equal('Anggota Profil Postman');",
+              " const old=pm.collectionVariables.get('src_profile_member_number'); if (old) pm.expect(data.membership.member_number).to.equal(old);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "07 - Data wajib tidak boleh kosong",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"city\":\"\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+              "if (pm.response.code === 422) pm.test('Error domisili tersedia', function () { pm.expect(pm.response.json().error.fields.city).to.be.an('array'); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "08 - Tanggal kalender tidak valid",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"birth_date\":\"2011-02-29\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "09 - Tolak perubahan email atau user_id melalui profil",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"city\":\"Tidak boleh tersimpan\",\"user_id\":999999,\"email\":\"other@example.test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+              "if (pm.response.code === 422) pm.test('Field asing ditolak', function () { pm.expect(pm.response.json().error.fields._request).to.be.an('array'); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "10 - JSON rusak ditolak",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"city\":",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "11 - Content-Type salah ditolak",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "text/plain"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "city=invalid",
+          "options": {
+            "raw": {
+              "language": "text"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 415', function () { pm.response.to.have.status(415); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "12 - Tanpa header CSRF ditolak",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"city\":\"Tidak boleh tersimpan\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 419', function () { pm.response.to.have.status(419); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "13 - Baca ulang membuktikan perubahan invalid tidak tersimpan",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "if (pm.response.code === 200) pm.test('Data hasil simpan valid tetap utuh', function () { const data=pm.response.json().data; pm.expect(data.city).to.equal('Kota Postman'); pm.expect(data.birth_date).to.equal('2012-02-29'); pm.expect(data.full_name).to.equal('Anggota Profil Postman'); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "14 - Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/auth/logout",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.remove('X-XSRF-TOKEN');",
+              "pm.cookies.jar().get(pm.environment.get('api_base_url') + '/', 'XSRF-TOKEN', function (error, value) {",
+              "  if (error) throw new Error('Tambahkan localhost ke Cookies > Domains allowlist.');",
+              "  if (!value) throw new Error('Kirim Ambil CSRF terlebih dahulu dan aktifkan cookie jar.');",
+              "  pm.request.headers.upsert({key: 'X-XSRF-TOKEN', value: decodeURIComponent(value)});",
+              "});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 204', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "15 - Profil tidak tersedia tanpa sesi",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{frontend_origin}}"
+          },
+          {
+            "key": "Referer",
+            "value": "{{frontend_origin}}/"
+          }
+        ],
+        "url": "{{api_base_url}}/api/v1/me/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}

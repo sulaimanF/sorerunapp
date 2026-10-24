@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "**/globals.css": "css"
+  },
+  "css.customData": [
+    ".vscode/tailwind-css-data.json"
+  ]
+}

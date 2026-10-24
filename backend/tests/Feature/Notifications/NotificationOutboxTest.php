@@ -35,7 +35,7 @@ final class NotificationOutboxTest extends TestCase
         parent::setUp();
         $this->requireIsolatedMysql();
         $this->seed(CoreRolesSeeder::class);
-        config(['app.url' => 'http://localhost:8000', 'mail.default' => 'array', 'sorerunapp.outbox.dispatch_on_commit' => false]);
+        config(['sorerunapp.frontend_url' => 'http://localhost:3000', 'app.url' => 'http://localhost:8000', 'mail.default' => 'array', 'sorerunapp.outbox.dispatch_on_commit' => false]);
         Notification::fake();
         Queue::fake();
     }
@@ -97,10 +97,14 @@ final class NotificationOutboxTest extends TestCase
         Notification::assertSentTo($user->fresh(), VerifyMembershipEmail::class, function ($notification, $channels, $notifiable): bool {
             self::assertSame(0, DB::transactionLevel());
             $message = $notification->toMail($notifiable);
-            $request = Request::create($message->actionUrl);
+            self::assertStringStartsWith('http://localhost:3000/verify-email#verification=', $message->actionUrl);
+            self::assertNull(parse_url($message->actionUrl, PHP_URL_QUERY));
+            parse_str((string) parse_url($message->actionUrl, PHP_URL_FRAGMENT), $fragment);
+            $signedUrl = $fragment['verification'];
+            $request = Request::create($signedUrl);
             self::assertTrue(URL::hasValidSignature($request));
             self::assertSame('2', $request->query('v'));
-            self::assertStringContainsString(sha1($notifiable->email), $message->actionUrl);
+            self::assertStringContainsString(sha1($notifiable->email), $signedUrl);
             self::assertGreaterThan(time() + 3500, (int) $request->query('expires'));
             self::assertLessThanOrEqual(time() + 3601, (int) $request->query('expires'));
             self::assertStringNotContainsString('src-member:v1:', json_encode($message->toArray(), JSON_THROW_ON_ERROR));

@@ -61,6 +61,10 @@ items.slice(0,14).forEach((item,i)=>{run(item,...fixtures[i]);if(i===6)assert.eq
 assert(!env.verification_url);
 run(items[14],202,envelope({result:'verification_requested'}));run(items[15],429,error('RATE_LIMITED'));
 env.verification_url=link;run(items[16],403,error('INVALID_VERIFICATION_LINK'));
+// Browser bridge emails preserve the signed API target for manual Postman checks.
+env.mailpit_message_id='synthetic-id';
+run(items[6],200,{...mail,HTML:'<a href="http://localhost:3000/verify-email#verification='+encodeURIComponent(link)+'">Verify</a>'});
+assert.equal(env.verification_url,link);
 // Exercise failure paths and safe URL extraction; no network requests are sent.
 assert.throws(()=>run(items[5],200,{messages:[]}),/Email belum ada/);
 assert(!env.verification_url);

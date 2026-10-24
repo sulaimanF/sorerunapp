@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\Memberships;
 
-use App\Actions\Notifications\RecordNotificationDelivery;
 use App\Enums\AccountStatus;
 use App\Enums\MembershipStatus;
 use App\Exceptions\ApiProblem;
 use App\Models\AuditLog;
-use App\Models\MemberNumberSequence;
 use App\Models\Membership;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -17,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 
 class VerifyEmailAndActivateMembership
 {
-    public function __construct(private readonly IssueMemberCredential $credentials, private readonly RecordNotificationDelivery $deliveries) {}
+    public function __construct(private readonly ActivatePendingMembership $activation) {}
 
     public function handle(int $actorId, string $id, string $emailHash, string $version, string $requestId, int $sessionVersion): array
     {
@@ -53,27 +51,8 @@ class VerifyEmailAndActivateMembership
                 $user->forceFill(['email_verified_at' => $now])->save();
                 $this->audit($actorId, (int) $membership->id, 'member.email_verified', $requestId, $now);
             }
-            if (! ($user->memberProfile?->isComplete() ?? false)) {
-                return $this->result('email_verified_profile_incomplete', $membership);
-            }
-            $prefix = config('sorerunapp.membership.number_prefix');
-            if (! is_string($prefix) || ! preg_match('/\A[A-Z][A-Z0-9]{1,11}\z/D', $prefix)) {
-                throw new ApiProblem('MEMBER_NUMBER_CONFIGURATION_UNAVAILABLE', 'Konfigurasi nomor anggota belum tersedia.', 503);
-            }
-            if ($membership->member_number === null) {
-                $sequence = MemberNumberSequence::query()->whereKey('membership')->lockForUpdate()->first();
-                if ($sequence === null || $sequence->next_value < 1 || $sequence->next_value >= PHP_INT_MAX) {
-                    throw new ApiProblem('MEMBER_NUMBER_UNAVAILABLE', 'Nomor anggota belum dapat diterbitkan.', 503);
-                }
-                $membership->member_number = $prefix.'-'.str_pad((string) $sequence->next_value, 6, '0', STR_PAD_LEFT);
-                $sequence->forceFill(['next_value' => $sequence->next_value + 1])->save();
-            }
-            $membership->forceFill(['status' => MembershipStatus::Active, 'joined_at' => $membership->joined_at ?? $now])->save();
-            $this->credentials->handle($membership, $actorId, $now);
-            $this->audit($actorId, (int) $membership->id, 'membership.activated', $requestId, $now);
-            $this->deliveries->handle($user, 'membership_activated', 'membership_activated:'.$membership->id, $now);
 
-            return $this->result('membership_activated', $membership);
+            return $this->activation->handleLocked($user, $membership, $requestId, $now);
         }, attempts: 3);
     }
 
