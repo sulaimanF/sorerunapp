@@ -2,43 +2,77 @@
 
 :root {
   color-scheme: light;
-  --background: #f8faf7;
-  --foreground: #17211b;
-  --primary: #c2410c;
-  --primary-hover: #9a3412;
-  --primary-foreground: #fffdf7;
-  --forest: #163e2b;
-  --forest-text: #1f4d3a;
-  --sunlight: #fb923c;
-  --ivory: #fffdf7;
-  --card: #fff;
-  --secondary: #eaf1eb;
-  --secondary-foreground: #1f4d3a;
-  --muted: #eef2ed;
-  --muted-foreground: #526257;
-  --accent: #fff0e6;
-  --accent-foreground: #9a3412;
-  --border: #dce2dc;
-  --input: #7b867b;
-  --ring: #c2410c;
-  --ring-on-dark: #fdba74;
+  --background: #fff9f0;
+  --foreground: #2b2118;
+  --card: #ffffff;
+  --card-foreground: #2b2118;
+  --popover: #ffffff;
+  --popover-foreground: #2b2118;
+  --primary: #ea6113;
+  --primary-foreground: #2b2118;
+  --primary-hover: #f88f22;
+  --secondary: #ffe3b3;
+  --secondary-foreground: #2b2118;
+  --muted: #e8ded3;
+  --muted-foreground: #6b5b4d;
+  --accent: #ffe3b3;
+  --accent-foreground: #2b2118;
+  --link: #b9470b;
+  --link-hover: #2b2118;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --border: #e8ded3;
+  --input: #8a7868;
+  --ring: #b9470b;
+  --ring-on-dark: #fbb931;
+  --overlay: rgba(43, 33, 24, 0.56);
+  --brand-dark: #2b2118;
+  --brand-light: #fff9f0;
+  --brand-warm: #f88f22;
+  --brand-gold: #fbb931;
+  --brand-cream: #ffe3b3;
+  --brand-deep: #b9470b;
   --success: #166534;
-  --success-background: #f0fdf4;
+  --success-surface: #f0fdf4;
   --warning: #92400e;
-  --warning-background: #fffbeb;
-  --danger: #b91c1c;
-  --danger-background: #fef2f2;
+  --warning-surface: #fffbeb;
   --info: #1d4ed8;
-  --info-background: #eff6ff;
-  --overlay: rgb(23 33 27 / 56%);
-  --qr-foreground: #000;
-  --qr-background: #fff;
+  --info-surface: #eff6ff;
+  --danger-surface: #fef2f2;
+  --qr-foreground: #000000;
+  --qr-background: #ffffff;
+  --shadow-card: 0 4px 16px rgba(43, 33, 24, 0.06);
+  --shadow-dialog: 0 16px 48px rgba(43, 33, 24, 0.16);
+  --brand-track: rgba(255, 249, 240, 0.14);
+  --brand-track-outline: rgba(255, 227, 179, 0.12);
+  --brand-track-shadow: rgba(248, 143, 34, 0.05);
 }
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
-  --color-forest: var(--forest);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-light: var(--brand-light);
+  --color-brand-warm: var(--brand-warm);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-deep: var(--brand-deep);
   --font-sans: var(--font-jakarta);
 }
 * {
@@ -160,17 +194,17 @@ legend {
 .muted {
   color: var(--muted-foreground);
 }
-.text-primary {
-  color: var(--primary);
+.text-brand {
+  color: var(--brand-deep);
 }
 .text-link {
-  color: var(--primary);
+  color: var(--link);
   text-decoration: underline;
   text-underline-offset: 3px;
   font-weight: 600;
 }
 .text-link:hover {
-  color: var(--primary-hover);
+  color: var(--link-hover);
 }
 .center {
   text-align: center;
@@ -199,7 +233,8 @@ legend {
   color: var(--primary-foreground);
   background: var(--primary);
 }
-.button-primary:hover {
+.button-primary:hover,
+.button-primary:active {
   background: var(--primary-hover);
 }
 .button-secondary {
@@ -223,8 +258,8 @@ legend {
   background: transparent;
 }
 .button-danger {
-  background: var(--danger);
-  color: var(--card);
+  background: var(--destructive);
+  color: var(--destructive-foreground);
 }
 .button:disabled {
   background: var(--muted);
@@ -257,8 +292,8 @@ legend {
 }
 .input[aria-invalid="true"],
 input[type="checkbox"][aria-invalid="true"] {
-  border-color: var(--danger);
-  outline-color: var(--danger);
+  border-color: var(--destructive);
+  outline-color: var(--destructive);
 }
 .form-field > label {
   display: block;
@@ -275,7 +310,7 @@ input[type="checkbox"][aria-invalid="true"] {
 }
 .required-marker,
 .field-error {
-  color: var(--danger);
+  color: var(--destructive);
 }
 .field-error {
   margin-top: 0.5rem;
@@ -360,20 +395,20 @@ input[type="checkbox"][aria-invalid="true"] {
   margin-top: 1px;
 }
 .alert-error {
-  color: var(--danger);
-  background: var(--danger-background);
+  color: var(--destructive);
+  background: var(--danger-surface);
 }
 .alert-warning {
   color: var(--warning);
-  background: var(--warning-background);
+  background: var(--warning-surface);
 }
 .alert-success {
   color: var(--success);
-  background: var(--success-background);
+  background: var(--success-surface);
 }
 .alert-info {
   color: var(--info);
-  background: var(--info-background);
+  background: var(--info-surface);
 }
 .loading-panel {
   min-height: 50svh;
@@ -399,7 +434,7 @@ input[type="checkbox"][aria-invalid="true"] {
   gap: 0.75rem;
   align-items: center;
   text-decoration: none;
-  color: var(--forest);
+  color: var(--brand-dark);
   flex-shrink: 0;
 }
 .brand-mark {
@@ -421,14 +456,19 @@ input[type="checkbox"][aria-invalid="true"] {
   font-weight: 400;
   color: var(--muted-foreground);
 }
+.brand-inverse:focus-visible,
+.auth-brand :focus-visible,
+.member-card :focus-visible {
+  outline-color: var(--ring-on-dark);
+}
 .brand-inverse {
-  color: var(--ivory);
+  color: var(--brand-light);
 }
 .brand-inverse .brand-dot {
-  color: var(--sunlight);
+  color: var(--brand-warm);
 }
 .brand-inverse .brand-name > span {
-  color: var(--ivory);
+  color: var(--brand-light);
 }
 .auth-shell {
   min-height: 100svh;
@@ -437,8 +477,8 @@ input[type="checkbox"][aria-invalid="true"] {
   position: relative;
   overflow: hidden;
   padding: 1.25rem 1.5rem;
-  background: var(--forest);
-  color: var(--ivory);
+  background: var(--brand-deep);
+  color: var(--brand-light);
 }
 .auth-story,
 .auth-brand-footer,
@@ -446,6 +486,7 @@ input[type="checkbox"][aria-invalid="true"] {
   display: none;
 }
 .auth-content {
+  background: var(--card);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -536,7 +577,7 @@ input[type="checkbox"][aria-invalid="true"] {
 }
 .mobile-nav a[aria-current],
 .desktop-nav a[aria-current] {
-  color: var(--primary);
+  color: var(--accent-foreground);
   background: var(--accent);
 }
 .dashboard-grid {
@@ -558,17 +599,20 @@ input[type="checkbox"][aria-invalid="true"] {
   height: 52px;
   border-radius: 1rem;
   background: var(--accent);
-  color: var(--primary);
+  color: var(--accent-foreground);
   display: grid;
   place-items: center;
 }
 .community-panel {
   background: var(--secondary);
   padding: 1.5rem;
-  color: var(--forest-text);
+  color: var(--secondary-foreground);
+}
+.community-panel .text-link {
+  color: var(--accent-foreground);
 }
 .community-panel .supporting {
-  color: var(--forest-text);
+  color: var(--secondary-foreground);
 }
 .status-badge {
   display: inline-flex;
@@ -586,11 +630,11 @@ input[type="checkbox"][aria-invalid="true"] {
   flex-shrink: 0;
 }
 .status-success {
-  background: var(--success-background);
+  background: var(--success-surface);
   color: var(--success);
 }
 .status-warning {
-  background: var(--warning-background);
+  background: var(--warning-surface);
   color: var(--warning);
 }
 .status-neutral {
@@ -616,10 +660,10 @@ input[type="checkbox"][aria-invalid="true"] {
   max-width: 420px;
   justify-self: center;
   padding: 1.5rem;
-  background: var(--forest);
-  color: var(--ivory);
+  background: var(--brand-dark);
+  color: var(--brand-light);
   border-radius: 1.5rem;
-  box-shadow: 0 4px 16px rgb(23 33 27 / 6%);
+  box-shadow: var(--shadow-card);
 }
 .member-card-brand {
   display: flex;
@@ -635,7 +679,7 @@ input[type="checkbox"][aria-invalid="true"] {
   letter-spacing: -0.07em;
 }
 .card-wordmark > span {
-  color: var(--sunlight);
+  color: var(--brand-warm);
 }
 .member-card-brand small {
   font-size: 0.75rem;
@@ -693,7 +737,7 @@ input[type="checkbox"][aria-invalid="true"] {
 .card-track {
   position: absolute;
   inset: 0.75rem;
-  border: 1px solid rgb(255 253 247 / 14%);
+  border: 1px solid var(--brand-track);
   border-radius: 1rem;
   z-index: -1;
   pointer-events: none;
@@ -732,7 +776,7 @@ input[type="checkbox"][aria-invalid="true"] {
   padding: 1.5rem;
   border-radius: 1.25rem;
   z-index: 51;
-  box-shadow: 0 16px 48px rgb(23 33 27 / 16%);
+  box-shadow: var(--shadow-dialog);
 }
 .dialog-panel > * + * {
   margin-top: 1rem;
@@ -888,14 +932,14 @@ input[type="checkbox"][aria-invalid="true"] {
     position: absolute;
     width: 480px;
     height: 640px;
-    border: 1px solid rgb(255 253 247 / 12%);
+    border: 1px solid var(--brand-track-outline);
     border-radius: 240px;
     transform: rotate(-30deg);
     bottom: -220px;
     right: -200px;
     box-shadow:
-      0 0 0 24px rgb(255 253 247 / 5%),
-      0 0 0 48px rgb(255 253 247 / 5%);
+      0 0 0 24px var(--brand-track-shadow),
+      0 0 0 48px var(--brand-track-shadow);
   }
   .member-main {
     padding: 2.5rem 2rem 3rem;
@@ -920,7 +964,7 @@ input[type="checkbox"][aria-invalid="true"] {
 }
 @media print {
   body {
-    background: white;
+    background: var(--qr-background);
   }
   .member-header,
   .mobile-nav,
@@ -942,23 +986,23 @@ input[type="checkbox"][aria-invalid="true"] {
     -webkit-print-color-adjust: exact;
     margin: 1rem auto;
     box-shadow: none;
-    color: #000 !important;
-    background: #fff !important;
-    border: 1px solid #17211b;
+    color: var(--qr-foreground) !important;
+    background: var(--qr-background) !important;
+    border: 1px solid var(--qr-foreground);
   }
   .member-card .card-joined,
   .member-card .card-instruction,
   .member-card .member-card-brand small {
-    color: #000 !important;
+    color: var(--qr-foreground) !important;
   }
   .qr-panel,
   .membership-qr {
-    background: #fff !important;
+    background: var(--qr-background) !important;
   }
   .qr-background {
-    fill: #fff !important;
+    fill: var(--qr-background) !important;
   }
   .qr-foreground {
-    fill: #000 !important;
+    fill: var(--qr-foreground) !important;
   }
 }

@@ -2,14 +2,14 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.0 |
-| Tanggal | 14 Oktober 2026 |
+| Versi dokumen | 1.1 |
+| Tanggal | 21 Oktober 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Jenis dokumen | Design system visual dan pedoman UI/UX |
 | Acuan | PRD.md final dan ARCHITECTURE.md final |
 | Status | Final — disetujui pemilik produk sebagai acuan desain visual dan UI/UX sorerunapp |
-| Arah visual | Oranye senja, hijau gelap, latar terang, tipografi Plus Jakarta Sans |
+| Arah visual | Palet Sunset, netral cokelat gelap dan krem terang, tipografi Plus Jakarta Sans |
 
 ## 1. Tujuan dan batas dokumen
 
@@ -17,7 +17,7 @@ Dokumen ini menentukan identitas visual, warna, tipografi, ukuran, layout, kompo
 
 Tujuannya adalah membuat pengalaman member, petugas event, dan admin konsisten, mudah dipelajari, serta dapat digunakan di HP saat kegiatan luar ruangan. Token dan aturan komponen menjadi acuan implementasi Next.js, Tailwind CSS, dan shadcn/ui.
 
-Warna dan font pada dokumen ini merupakan pilihan desain awal untuk ditinjau pemilik produk, bukan klaim bahwa komunitas sudah mempunyai pedoman merek resmi. Logo final belum tersedia; gunakan wordmark teks SRC dan sorerunapp sampai aset resmi ditentukan. PRD dan arsitektur final tetap menjadi sumber aturan bisnis.
+Palet Sunset beserta warna netral pendamping dan font pada dokumen ini telah dipilih pemilik produk sebagai acuan visual aplikasi; pilihan tersebut bukan klaim bahwa komunitas sudah mempunyai pedoman merek resmi. Logo final belum tersedia; gunakan wordmark teks SRC dan sorerunapp sampai aset resmi ditentukan. PRD dan arsitektur final tetap menjadi sumber aturan bisnis.
 
 ## 2. Karakter visual
 
@@ -25,11 +25,11 @@ Warna dan font pada dokumen ini merupakan pilihan desain awal untuk ditinjau pem
 
 - **Aktif:** oranye senja memberi penekanan pada tindakan utama.
 - **Hangat:** latar terang bernuansa alami dan bahasa yang ramah.
-- **Tertib:** hijau gelap, grid teratur, label jelas, dan angka yang mudah dipindai.
+- **Tertib:** netral cokelat gelap, grid teratur, label jelas, dan angka yang mudah dipindai.
 - **Inklusif:** tampilan tidak mengesankan aplikasi khusus atlet elite; hindari bahasa yang merendahkan pace atau tingkat pengalaman.
 - **Praktis di lapangan:** tombol cukup besar, teks kontras, dan hasil check-in yang tegas.
 
-Tampilan dominan berupa ruang terang, kartu putih, teks gelap, serta penekanan warna seperlunya. Gunakan hijau gelap pada kartu anggota dan identitas komunitas. Gunakan oranye pada CTA utama dan elemen merek; jangan menjadikan semua kartu atau teks berwarna oranye.
+Tampilan dominan berupa ruang terang, kartu putih, teks gelap, serta penekanan warna seperlunya. Gunakan Deep Brown pada kartu anggota dan bidang identitas komunitas, dengan teks Warm Canvas dan aksen Sunset secukupnya. Gunakan oranye pada CTA utama dan elemen merek; jangan menjadikan semua kartu atau teks berwarna oranye.
 
 ### 2.2 Prinsip visual
 
@@ -50,8 +50,8 @@ Tampilan dominan berupa ruang terang, kartu putih, teks gelap, serta penekanan w
 | Nama komunitas | Sore Running Club |
 | Singkatan | SRC |
 | Wordmark sementara | Teks SRC tebal, dengan Sore Running Club sebagai pendamping; sorerunapp tampil sebagai nama aplikasi |
-| Varian terang | Teks hijau gelap pada latar putih/terang |
-| Varian gelap | Teks ivory pada hijau gelap |
+| Varian terang | Teks Deep Brown pada latar White atau Warm Canvas |
+| Varian gelap | Teks Warm Canvas pada Deep Brown |
 | Ruang aman logo | Minimum 12 px atau setengah tinggi wordmark, ambil yang lebih besar |
 | Foto | Foto kegiatan yang diizinkan penggunaannya; bukan syarat agar form/scanner berfungsi |
 
@@ -59,38 +59,50 @@ Jangan membuat simbol SRC seolah-olah logo resmi. Hindari efek neon, glassmorphi
 
 ## 4. Sistem warna
 
-### 4.1 Palet utama
+### 4.1 Palet utama dan netral pendamping
+
+Empat warna Sunset berasal dari gambar referensi pertama yang dipilih pemilik produk. Deep Brown, Warm Canvas, White, Muted Brown, Soft Border, Input Border, dan Deep Orange melengkapi kebutuhan teks, form, serta interaksi yang dapat dibaca.
 
 | Token | Nama | HEX | Penggunaan |
 | --- | --- | --- | --- |
-| brand-primary | Sunset Orange | #C2410C | CTA utama, link, selected indicator |
-| brand-primary-hover | Deep Sunset | #9A3412 | Hover/pressed CTA dan link |
-| brand-forest | SRC Forest | #163E2B | Kartu anggota, bidang identitas |
-| brand-forest-text | Forest Text | #1F4D3A | Teks secondary button dan accent hijau |
-| brand-sunlight | Warm Orange | #FB923C | Dekorasi dan aksen; bukan teks kecil pada putih |
-| brand-ivory | Evening Ivory | #FFFDF7 | Teks pada bidang brand gelap dan primary button |
-| canvas | Soft Field | #F8FAF7 | Latar halaman |
-| surface | White | #FFFFFF | Form, tabel, dialog, panel QR |
-| ink | Running Ink | #17211B | Teks utama |
-| ink-muted | Muted Field | #526257 | Teks pendamping yang tetap terbaca |
+| brand-primary | Sunset Orange | #EA6113 | Warna utama merek dan CTA utama dengan teks Deep Brown |
+| brand-warm | Warm Orange | #F88F22 | Hover/pressed CTA utama, aksen dan dekorasi |
+| brand-gold | Golden Yellow | #FBB931 | Sorotan kecil, dekorasi, fokus pada bidang gelap |
+| brand-cream | Sunset Cream | #FFE3B3 | Panel pendukung dan aksen lembut |
+| brand-dark | Deep Brown | #2B2118 | Panel identitas SRC, kartu anggota, teks utama dan teks CTA oranye |
+| canvas / brand-light | Warm Canvas | #FFF9F0 | Latar halaman dan teks pada bidang Deep Brown |
+| surface | White | #FFFFFF | Form, input, tabel, dialog, panel QR |
+| ink-muted | Muted Brown | #6B5B4D | Teks bantuan, deskripsi, metadata dan placeholder |
+| border | Soft Border | #E8DED3 | Pemisah dan batas kartu dekoratif |
+| input-border | Input Border | #8A7868 | Batas input dan kontrol form |
+| brand-deep | Deep Orange | #B9470B | Tautan, teks penekanan dan fokus pada White/Warm Canvas |
 
-Warm Orange tidak dipakai untuk teks putih atau ikon fungsional kecil pada latar putih karena pasangan tersebut tidak mencapai kontras yang dibutuhkan. Untuk tombol utama, gunakan Sunset Orange yang lebih gelap.
+CTA Sunset Orange dan Warm Orange memakai teks Deep Brown, bukan teks putih. Golden Yellow dan Warm Orange tidak digunakan sebagai teks kecil atau ikon fungsional pada latar putih. Tautan pada White/Warm Canvas memakai Deep Orange dengan underline; tautan pada panel Sunset Cream memakai Deep Brown dengan underline agar kontras tetap cukup.
+
+Gradasi Sunset Orange → Warm Orange → Golden Yellow → Sunset Cream boleh digunakan sebagai dekorasi pada panel merek, di luar area form dan QR. Teks penting memakai bidang solid yang kontras; gradasi bukan latar tombol utama, teks kecil, atau panel QR. Warna status tetap mengikuti makna pada bagian 4.3.
 
 ### 4.2 Token semantik dan batas komponen
 
+Token semantik berikut memetakan palet yang sama ke kebutuhan komponen; tidak menambahkan warna merek baru.
+
 | Token | HEX | Penggunaan |
 | --- | --- | --- |
-| secondary | #EAF1EB | Background secondary button dan selected navigation ringan |
-| secondary-foreground | #1F4D3A | Teks/ikon pada secondary |
-| muted | #EEF2ED | Section ringan, skeleton base |
-| muted-foreground | #526257 | Bantuan, metadata, placeholder |
-| accent | #FFF0E6 | Penekanan brand ringan |
-| accent-foreground | #9A3412 | Teks pada accent |
-| border | #DCE2DC | Pemisah dekoratif, batas kartu noninteraktif |
-| input-border | #7B867B | Batas field dan kontrol yang diperlukan untuk mengenali input |
-| focus-ring | #C2410C | Fokus pada latar terang |
-| focus-ring-on-dark | #FDBA74 | Fokus pada kartu/bidang hijau gelap |
-| overlay | rgba(23,33,27,0.56) | Scrim dialog/sheet di belakang panel |
+| primary | #EA6113 | Background CTA utama |
+| primary-foreground | #2B2118 | Teks/ikon CTA utama |
+| primary-hover | #F88F22 | Hover/pressed CTA; foreground tetap Deep Brown |
+| secondary | #FFE3B3 | Background secondary button dan selected navigation ringan |
+| secondary-foreground | #2B2118 | Teks/ikon pada secondary |
+| muted | #E8DED3 | Section ringan, skeleton base, disabled background |
+| muted-foreground | #6B5B4D | Bantuan, metadata, placeholder dan teks disabled |
+| accent | #FFE3B3 | Penekanan brand ringan |
+| accent-foreground | #2B2118 | Teks pada accent |
+| link | #B9470B | Tautan pada White/Warm Canvas dengan underline |
+| link-hover | #2B2118 | Hover tautan pada White/Warm Canvas; underline tetap terlihat |
+| border | #E8DED3 | Pemisah dekoratif, batas kartu noninteraktif |
+| input-border | #8A7868 | Batas field dan kontrol yang diperlukan untuk mengenali input |
+| focus-ring | #B9470B | Fokus pada White/Warm Canvas; gunakan offset agar tidak menyatu dengan tombol |
+| focus-ring-on-dark | #FBB931 | Fokus pada bidang Deep Brown |
+| overlay | rgba(43,33,24,0.56) | Scrim dialog/sheet di belakang panel |
 | qr-foreground | #000000 | Modul QR |
 | qr-background | #FFFFFF | Panel dan quiet zone QR |
 
@@ -104,7 +116,7 @@ Border dekoratif yang tipis bukan pengganti batas field yang dapat dikenali. Jan
 | Warning | #92400E | #FFFBEB | Menunggu verifikasi, Kuota penuh, Ditangguhkan |
 | Danger | #B91C1C | #FEF2F2 | Akun diblokir, QR tidak berlaku, Kehadiran dibatalkan |
 | Info | #1D4ED8 | #EFF6FF | Sudah check-in, Event dipublikasikan |
-| Neutral | #526257 | #EEF2ED | Draft, Selesai, Keanggotaan berakhir |
+| Neutral | #6B5B4D | #E8DED3 | Draft, Selesai, Keanggotaan berakhir |
 
 Primary orange berarti tindakan/merek, bukan otomatis peringatan. Hijau berarti hasil sah/aktif, bukan sekadar QR terbaca. Status cancelled dan voided mempunyai label berbeda meskipun memakai warna danger yang sama.
 
@@ -114,20 +126,26 @@ Rasio berikut dihitung dari nilai HEX solid memakai relative luminance sRGB. Ang
 
 | Pasangan foreground / background | Rasio sekitar | Penggunaan |
 | --- | --- | --- |
-| #17211B / #FFFFFF | 16.54:1 | Teks utama pada kartu |
-| #17211B / #F8FAF7 | 15.76:1 | Teks utama halaman |
-| #526257 / #F8FAF7 | 6.17:1 | Teks pendamping |
-| #FFFDF7 / #C2410C | 5.09:1 | Teks primary button |
-| #FFFDF7 / #9A3412 | 7.18:1 | Primary hover |
-| #FFFDF7 / #163E2B | 11.74:1 | Kartu anggota gelap |
-| #1F4D3A / #EAF1EB | 8.38:1 | Secondary button |
+| #2B2118 / #FFFFFF | 15.75:1 | Teks utama pada form/kartu terang |
+| #2B2118 / #FFF9F0 | 15.04:1 | Teks utama halaman |
+| #6B5B4D / #FFF9F0 | 6.21:1 | Teks pendamping pada canvas |
+| #6B5B4D / #FFFFFF | 6.50:1 | Placeholder/bantuan pada input putih |
+| #2B2118 / #EA6113 | 4.66:1 | Teks primary button |
+| #2B2118 / #F88F22 | 6.71:1 | Teks primary hover/pressed |
+| #FFF9F0 / #2B2118 | 15.04:1 | Teks kartu anggota/panel identitas gelap |
+| #2B2118 / #FFE3B3 | 12.67:1 | Teks secondary button/panel cream |
+| #B9470B / #FFFFFF | 5.29:1 | Tautan pada surface |
+| #B9470B / #FFF9F0 | 5.05:1 | Tautan/focus ring pada canvas |
 | #166534 / #F0FDF4 | 6.81:1 | Success |
 | #92400E / #FFFBEB | 6.84:1 | Warning |
-| #B91C1C / #FEF2F2 | 5.92:1 | Error |
+| #B91C1C / #FEF2F2 | 5.91:1 | Error |
 | #1D4ED8 / #EFF6FF | 6.16:1 | Info |
-| #7B867B / #FFFFFF | 3.79:1 | Batas input |
-| #C2410C / #F8FAF7 | 4.93:1 | Focus ring pada canvas |
-| #FDBA74 / #163E2B | 7.08:1 | Focus ring pada bidang gelap |
+| #6B5B4D / #E8DED3 | 4.90:1 | Neutral/disabled |
+| #8A7868 / #FFFFFF | 4.23:1 | Batas input pada surface |
+| #8A7868 / #FFF9F0 | 4.04:1 | Batas kontrol pada canvas |
+| #FBB931 / #2B2118 | 9.06:1 | Focus ring pada bidang gelap |
+
+Teks putih (#FFFFFF) pada Sunset Orange (#EA6113) hanya sekitar 3.38:1 dan tidak dipakai untuk label tombol ukuran normal. Deep Orange pada Sunset Cream hanya sekitar 4.26:1; gunakan Deep Brown untuk teks/tautan pada panel cream.
 
 Target normal text minimum 4.5:1. Elemen visual kontrol yang diperlukan minimum 3:1 terhadap warna yang bersebelahan. Produk menargetkan teks besar tetap 4.5:1 bila memungkinkan. Opacity, gambar, gradient, dan overlay mengubah hasil aktual dan perlu diperiksa kembali.
 
@@ -205,8 +223,8 @@ Checkbox/radio dapat mempunyai indikator 20 px dengan label/hit area gabungan se
 ### 6.3 Shadow, border, dan lapisan
 
 - Kartu biasa: border 1 px dekoratif, tanpa shadow besar.
-- Kartu menonjol: shadow 0 4px 16px rgba(23,33,27,0.06).
-- Dialog/popover: shadow 0 16px 48px rgba(23,33,27,0.16).
+- Kartu menonjol: shadow 0 4px 16px rgba(43,33,24,0.06).
+- Dialog/popover: shadow 0 16px 48px rgba(43,33,24,0.16).
 - Focus memakai ring/outline, tidak hanya shadow tipis.
 - Skala z-index: konten 0, sticky header 20, mobile navigation 30, popover 40, modal 50, toast 60. Primitive mengelola nesting/focus dengan benar.
 
@@ -294,8 +312,8 @@ Komponen domain berada pada src/features terkait sesuai arsitektur. Komponen lin
 
 | Varian | Warna/perilaku | Contoh |
 | --- | --- | --- |
-| Primary | Sunset Orange, teks ivory; hover Deep Sunset | Daftar Member, Simpan Perubahan, Konfirmasi Hadir |
-| Secondary | Secondary hijau terang dengan teks forest | Lihat Kartu, Kembali |
+| Primary | Sunset Orange, teks Deep Brown; hover/pressed Warm Orange dengan teks Deep Brown | Daftar Member, Simpan Perubahan, Konfirmasi Hadir |
+| Secondary | Sunset Cream dengan teks Deep Brown | Lihat Kartu, Kembali |
 | Outline | Putih, border input-border, teks ink | Batal, Filter |
 | Ghost | Tanpa bidang solid; teks kontras dan hover surface | Menu sekunder, kembali dari detail |
 | Destructive | Danger solid dengan teks terang yang diperiksa kontrasnya | Batalkan Kehadiran setelah konfirmasi |
@@ -348,6 +366,8 @@ Tampilkan status event dan jendela check-in secara terpisah, misalnya 'Dipublika
 
 Desktop auth dapat menggunakan dua kolom: panel brand singkat dan form 440 px. Pada mobile, prioritaskan form; panel dekoratif dipersingkat. Nama komunitas jelas agar pengguna tahu tempat mendaftar.
 
+Komposisi warna auth: latar halaman Warm Canvas, input/panel form White, teks utama Deep Brown, serta tombol Masuk/Daftar Member Sunset Orange dengan teks Deep Brown. Panel identitas desktop atau header merek mobile memakai Deep Brown dengan teks Warm Canvas dan aksen Sunset. Tautan pada latar terang memakai Deep Orange; dekorasi gradasi dibatasi sesuai bagian 4.1.
+
 Halaman hasil registrasi menampilkan instruksi verifikasi dan alamat tujuan yang dimasking jika diperlukan, bukan kartu aktif. Pesan publik email existing mengikuti kontrak generik agar tidak membocorkan akun. Resend menampilkan cooldown dalam detik dan pesan bahwa email sedang diproses, bukan klaim sudah terkirim.
 
 Hasil verifikasi memisahkan berhasil, sudah diverifikasi, kedaluwarsa, invalid, perlu login, dan profil belum lengkap. Setiap keadaan mempunyai langkah lanjut yang sesuai. Tidak menawarkan approval admin karena aktivasi otomatis.
@@ -362,7 +382,7 @@ Event berkuota menampilkan 'Hadir 80 dari 100' dan 'Tersisa 20 tempat' dari serv
 
 | Area | Spesifikasi |
 | --- | --- |
-| Bidang utama | SRC Forest; wordmark ivory; aksen oranye terbatas |
+| Bidang utama | Deep Brown; wordmark Warm Canvas; aksen Sunset terbatas di luar panel QR |
 | Identitas | Nama dapat wrap, nomor member tabular/monospace, foto jika ada |
 | Status | Badge Aktif terpisah, tanggal bergabung |
 | Panel QR | Putih penuh, QR hitam, terpusat; jauh dari ornamen |
@@ -528,7 +548,7 @@ Target produk adalah WCAG 2.2 level AA pada alur inti, dengan target sentuh prod
 - Zoom teks 200% tetap dapat digunakan; uji reflow pada 320 CSS px dengan pengecualian region tabel dua dimensi yang beralasan.
 - Sticky navigation/action tidak menutupi elemen yang mendapat fokus atau pesan penting.
 - Uji layar HP di luar ruangan dengan nama panjang dan jaringan lambat; hindari teks abu-abu tipis di atas video/foto.
-- Default menggunakan light theme. Kartu forest dan viewport kamera gelap bukan dark mode seluruh aplikasi. Dark mode baru ditambahkan setelah seluruh pasangan warna/state diaudit.
+- Default menggunakan light theme. Kartu Deep Brown dan viewport kamera gelap bukan dark mode seluruh aplikasi. Dark mode baru ditambahkan setelah seluruh pasangan warna/state diaudit.
 
 Kelulusan dihitung pada implementasi nyata, bukan dari pilihan shadcn/ui atau token saja. Kamera memerlukan alternatif pencarian manual yang sesuai izin; alternatif ini tetap memakai koneksi dan validasi backend.
 
@@ -538,30 +558,36 @@ Gunakan semantic CSS variables pada frontend/src/app/globals.css dan integrasika
 
 ```css
 :root {
-  --background: #f8faf7;
-  --foreground: #17211b;
+  --background: #fff9f0;
+  --foreground: #2b2118;
   --card: #ffffff;
-  --card-foreground: #17211b;
+  --card-foreground: #2b2118;
   --popover: #ffffff;
-  --popover-foreground: #17211b;
-  --primary: #c2410c;
-  --primary-foreground: #fffdf7;
-  --primary-hover: #9a3412;
-  --secondary: #eaf1eb;
-  --secondary-foreground: #1f4d3a;
-  --muted: #eef2ed;
-  --muted-foreground: #526257;
-  --accent: #fff0e6;
-  --accent-foreground: #9a3412;
+  --popover-foreground: #2b2118;
+  --primary: #ea6113;
+  --primary-foreground: #2b2118;
+  --primary-hover: #f88f22;
+  --secondary: #ffe3b3;
+  --secondary-foreground: #2b2118;
+  --muted: #e8ded3;
+  --muted-foreground: #6b5b4d;
+  --accent: #ffe3b3;
+  --accent-foreground: #2b2118;
+  --link: #b9470b;
+  --link-hover: #2b2118;
   --destructive: #b91c1c;
-  --destructive-foreground: #fffdf7;
-  --border: #dce2dc;
-  --input: #7b867b;
-  --ring: #c2410c;
-  --ring-on-dark: #fdba74;
-  --brand-forest: #163e2b;
-  --brand-ivory: #fffdf7;
-  --brand-sunlight: #fb923c;
+  --destructive-foreground: #ffffff;
+  --border: #e8ded3;
+  --input: #8a7868;
+  --ring: #b9470b;
+  --ring-on-dark: #fbb931;
+  --overlay: rgba(43, 33, 24, 0.56);
+  --brand-dark: #2b2118;
+  --brand-light: #fff9f0;
+  --brand-warm: #f88f22;
+  --brand-gold: #fbb931;
+  --brand-cream: #ffe3b3;
+  --brand-deep: #b9470b;
   --success: #166534;
   --success-surface: #f0fdf4;
   --warning: #92400e;
@@ -600,7 +626,7 @@ Tabel berikut menetapkan susunan visual, bukan pixel-perfect mockup. Seluruh con
 | --- | --- | --- | --- | --- |
 | Registrasi mobile | Wordmark dan ajakan bergabung singkat | Form berlabel | Kebijakan, link login | Daftar Member |
 | Beranda member | Sapaan dan status | Akses kartu anggota | Event terdekat, riwayat | Lihat Kartu |
-| Kartu anggota | Judul halaman | Card forest dengan panel QR putih | Identitas, helper penggunaan | Lihat QR Lebih Besar |
+| Kartu anggota | Judul halaman | Card Deep Brown dengan panel QR putih | Identitas, helper penggunaan | Lihat QR Lebih Besar |
 | Detail event | Nama, status, jadwal | Lokasi dan informasi kegiatan | Hadir/kuota, syarat operasional | Lihat Kartu; tanpa reservasi |
 | Scanner siap | Header event dan kuota | Video kamera | Panduan, akses manual | Scan melalui kamera aktif |
 | Preview scanner | Konteks event tetap terlihat | Foto/inisial, nama, nomor | Status dan instruksi identitas | Konfirmasi Hadir |
@@ -649,3 +675,11 @@ Referensi primer:
 - [DENSO WAVE — Area dan quiet zone QR](https://www.qrcode.com/en/howto/code.html).
 
 Palet, ukuran, komposisi, dan copy merupakan keputusan desain sorerunapp. Perubahan token harus diperiksa pada semua komponen dan status terdampak, termasuk kartu/scanner. Perubahan visual tidak boleh diam-diam mengubah aturan bisnis; penambahan RSVP, pembayaran, data wajib, atau hak akses harus melalui revisi PRD/arsitektur yang relevan.
+
+### 20.1 Riwayat revisi palet
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.1 | 21 Oktober 2026 | Palet Sunset dari gambar referensi pertama disetujui pemilik produk: #EA6113, #F88F22, #FBB931, #FFE3B3; dilengkapi netral cokelat gelap/terang, tautan Deep Orange, pemetaan token, dan perhitungan kontras baru. |
+
+Revisi 1.1 tetap berstatus final dan menggantikan palet merek sebelumnya. Status success/warning/danger/info serta QR hitam-putih tetap mengikuti aturan yang sama. Perubahan ini memperbarui dokumen terlebih dahulu; penerapan token pada kode aplikasi dan sinkronisasi acuan warna yang disalin ke dokumen lain dilakukan pada tahap implementasi berikutnya. Ukuran, tipografi, proses bisnis, kontrak API, dan aturan akses tidak berubah.

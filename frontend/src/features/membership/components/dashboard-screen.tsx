@@ -18,7 +18,7 @@ export function DashboardScreen() {
   return (
     <div className="stack-large">
       <header>
-        <p className="eyebrow text-primary">Ruang anggota SRC</p>
+        <p className="eyebrow text-brand">Ruang anggota SRC</p>
         <h1 className="page-heading">Halo, {session.user.full_name}.</h1>
         <p className="muted">Senang bisa melangkah bersama Anda.</p>
       </header>

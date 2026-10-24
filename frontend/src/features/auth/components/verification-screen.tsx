@@ -91,7 +91,7 @@ export function VerificationScreen() {
   return (
     <div className="stack-large">
       <header>
-        <MailCheck className="text-primary" size={36} aria-hidden />
+        <MailCheck className="text-brand" size={36} aria-hidden />
         <h2 className="page-heading">Verifikasi email Anda</h2>
         <p className="muted">
           Satu langkah lagi untuk mengaktifkan keanggotaan.

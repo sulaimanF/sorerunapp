@@ -70,7 +70,7 @@ export function RegisterForm() {
   return (
     <div className="stack-large">
       <header>
-        <p className="eyebrow text-primary">Satu langkah untuk bergabung</p>
+        <p className="eyebrow text-brand">Satu langkah untuk bergabung</p>
         <h2 className="page-heading">Daftar Member</h2>
         <p className="muted">
           Keanggotaan gratis. Daftar sekali untuk menjadi bagian dari SRC.

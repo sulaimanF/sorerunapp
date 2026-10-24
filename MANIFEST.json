@@ -1,0 +1,51 @@
+{
+  "design_version": "1.1",
+  "scope": "Sunset palette frontend only",
+  "source_files": [
+    {
+      "path": "frontend/src/app/globals.css",
+      "bytes": 19630,
+      "sha256": "b1634657495253126d4d7f6570c4d3d5ed96146882fba1dfd9a023e4c848370c"
+    },
+    {
+      "path": "frontend/src/app/(public)/registration-received/page.tsx",
+      "bytes": 924,
+      "sha256": "153c08db895234b8573bab9b9f1094f976f8131a988aafc6346e6cac2536928e"
+    },
+    {
+      "path": "frontend/src/features/membership/components/dashboard-screen.tsx",
+      "bytes": 3268,
+      "sha256": "d32d3579ea3ed26730a88c4776175dd33839cb06b80116534017a82946919bf0"
+    },
+    {
+      "path": "frontend/src/features/membership/components/card-screen.tsx",
+      "bytes": 6733,
+      "sha256": "9496d97acbdd2f9a0613b3f3b98ebb104932e1e7c5d83cdc2a4a9a7d571d119f"
+    },
+    {
+      "path": "frontend/src/features/members/components/profile-screen.tsx",
+      "bytes": 2469,
+      "sha256": "19db8cff77ed4f50d657e5e5a1e312d5ef97fcecab9c87c6d313285bcff8d366"
+    },
+    {
+      "path": "frontend/src/features/auth/components/login-form.tsx",
+      "bytes": 4368,
+      "sha256": "8a36213a15a257bae72dbe90d5980298c0b85f12a9014db152f9281af5b29def"
+    },
+    {
+      "path": "frontend/src/features/auth/components/register-form.tsx",
+      "bytes": 10958,
+      "sha256": "19455f84b510cad5466d5fb3f1aa0c3db66cdd9249c4b044ddb66d95fa96eb80"
+    },
+    {
+      "path": "frontend/src/features/auth/components/verification-screen.tsx",
+      "bytes": 5309,
+      "sha256": "116d8d0e42444da2fcdb3bba99050c9c1ec786e439ced2be89088b2e672fca6a"
+    },
+    {
+      "path": "docs/PANDUAN_PALET_SUNSET.md",
+      "bytes": 6607,
+      "sha256": "b0522b0d91e14bdfb7528d3e5584e7c3bf8ebc0f0f042ea745c1e790fbc7a069"
+    }
+  ]
+}

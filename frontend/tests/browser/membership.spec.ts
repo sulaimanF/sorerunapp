@@ -31,6 +31,7 @@ type FakeState = {
   cardDenied: boolean;
   logoutFails: boolean;
   resendRateLimited: boolean;
+  loginRateLimited: boolean;
   loginCount: number;
   verifyCount: number;
   cardCount: number;
@@ -47,6 +48,7 @@ async function fixtureApi(
     cardDenied: false,
     logoutFails: false,
     resendRateLimited: false,
+    loginRateLimited: false,
     loginCount: 0,
     verifyCount: 0,
     cardCount: 0,
@@ -134,6 +136,10 @@ async function fixtureApi(
     }
     if (path === "/api/v1/auth/login") {
       state.loginCount++;
+      if (state.loginRateLimited)
+        return error(429, "RATE_LIMITED", "Terlalu banyak percobaan login.", {
+          "Retry-After": "65",
+        });
       if (request.postDataJSON().password !== "Test-only-password-123")
         return error(
           401,
@@ -206,6 +212,132 @@ async function login(page: Page, returnPath = "/beranda") {
   await page.getByRole("button", { name: "Masuk", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${returnPath}$`));
 }
+
+for (const active of [false, true]) {
+  test(`existing ${active ? "active" : "unverified"} session opens home from login without another click`, async ({
+    page,
+    context,
+  }) => {
+    const state = await fixtureApi(context, { loggedIn: true, active });
+    await page.goto("/login");
+    // The development server compiles Beranda on its first navigation.
+    await expect(page).toHaveURL(`${FRONTEND}/beranda`, { timeout: 30_000 });
+    await expect(page.getByRole("form", { name: "Form login" })).toHaveCount(0);
+    await expect(page.getByText(/Anda sedang masuk sebagai/)).toHaveCount(0);
+    expect(state.loginCount).toBe(0);
+    expect(state.verifyCount).toBe(0);
+    if (!active)
+      await expect(
+        page.getByText("Menunggu verifikasi", { exact: true }),
+      ).toBeVisible();
+  });
+}
+
+test("existing session returns to verification automatically without activating membership", async ({
+  page,
+  context,
+}) => {
+  const state = await fixtureApi(context, { loggedIn: true });
+  await page.goto("/login?returnTo=%2Fverify-email");
+  await expect(page).toHaveURL(`${FRONTEND}/verify-email`);
+  expect(state.loginCount).toBe(0);
+  expect(state.verifyCount).toBe(0);
+  expect(state.active).toBe(false);
+});
+
+test("login shows checking button before inline preparation until home commits", async ({
+  page,
+  context,
+}) => {
+  const state = await fixtureApi(context, { active: true });
+  let releaseLogin: (() => void) | undefined;
+  const loginReady = new Promise<void>((resolve) => {
+    releaseLogin = resolve;
+  });
+  await page.route(`${API}/api/v1/auth/login`, async (route) => {
+    if (route.request().method() === "POST") await loginReady;
+    await route.fallback();
+  });
+  let releaseHome: (() => void) | undefined;
+  const homeReady = new Promise<void>((resolve) => {
+    releaseHome = resolve;
+  });
+  await page.route("**/beranda?*", async (route) => {
+    await homeReady;
+    await route.continue();
+  });
+  try {
+    await page.goto("/login");
+    await page.getByRole("textbox", { name: "Email", exact: true }).fill(email);
+    await page.getByLabel(/^Password/).fill("Test-only-password-123");
+    const loginResponse = page.waitForResponse(
+      (response) => response.url() === `${API}/api/v1/auth/login` &&
+        response.request().method() === "POST",
+    );
+    const loginRequest = page.waitForRequest(
+      (request) => request.url() === `${API}/api/v1/auth/login` &&
+        request.method() === "POST",
+    );
+    await page.getByRole("button", { name: "Masuk", exact: true }).click();
+    await loginRequest;
+    const checking = page.getByRole("button", { name: "Memeriksa akun…", exact: true });
+    await expect(checking).toBeVisible();
+    await expect(checking).toBeDisabled();
+    await expect(page.getByRole("form", { name: "Form login" })).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Persiapan akun" }),
+    ).toHaveCount(0);
+    releaseLogin?.();
+    await (await loginResponse).finished();
+
+    const preparation = page.getByRole("region", { name: "Persiapan akun" });
+    await expect(preparation).toBeVisible();
+    await expect(preparation).toContainText("Menyiapkan akun…");
+    await expect(page.getByRole("form", { name: "Form login" })).toHaveCount(0);
+    expect(new URL(page.url()).pathname).toBe("/login");
+    expect(state.loginCount).toBe(1);
+    // The brand panel stays interactive; preparation does not cover the screen.
+    await page.getByRole("complementary").getByRole("link").click({ trial: true });
+
+    releaseHome?.();
+    await expect(page).toHaveURL(`${FRONTEND}/beranda`);
+    await expect(
+      page.getByRole("heading", { name: `Halo, ${fixtureName}.`, exact: true }),
+    ).toBeVisible();
+    await expect(preparation).toHaveCount(0);
+    await expect(page.getByRole("form", { name: "Form login" })).toHaveCount(0);
+  } finally {
+    releaseLogin?.();
+    releaseHome?.();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
+test("login rate limit keeps its server cooldown without a countdown button label", async ({
+  page,
+  context,
+}) => {
+  const state = await fixtureApi(context, { active: true, loginRateLimited: true });
+  await page.clock.install();
+  await page.goto("/login");
+  await page.getByRole("textbox", { name: "Email", exact: true }).fill(email);
+  await page.getByLabel(/^Password/).fill("Test-only-password-123");
+  await page.getByRole("button", { name: "Masuk", exact: true }).click();
+  await expect(
+    page.getByRole("form", { name: "Form login" }).getByRole("alert"),
+  ).toContainText("Terlalu banyak percobaan login.");
+  const button = page.getByRole("button", { name: "Masuk", exact: true });
+  await expect(button).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Tunggu \d+ detik/ })).toHaveCount(0);
+  expect(state.loggedIn).toBe(false);
+
+  state.loginRateLimited = false;
+  await page.clock.fastForward(66_000);
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(page).toHaveURL(`${FRONTEND}/beranda`);
+  expect(state.loginCount).toBe(2);
+});
 
 test("registration, login, explicit verification, QR dialog, and logout", async ({
   page,
@@ -372,6 +504,10 @@ test("login error preserves input and external return URLs are rejected", async 
   await expect(
     page.getByRole("textbox", { name: "Email", exact: true }),
   ).toHaveValue(email);
+  await expect(page.getByLabel(/^Password/)).toHaveValue("Wrong-password");
+  await expect(
+    page.getByRole("region", { name: "Persiapan akun" }),
+  ).toHaveCount(0);
   await page.getByLabel(/^Password/).fill("Test-only-password-123");
   await page.getByRole("button", { name: "Masuk", exact: true }).click();
   await expect(page).toHaveURL(`${FRONTEND}/beranda`);

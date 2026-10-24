@@ -5,7 +5,7 @@ export const metadata = { title: "Permintaan Registrasi Diterima" };
 export default function Page() {
   return (
     <div className="stack-large">
-      <MailCheck size={40} className="text-primary" aria-hidden />
+      <MailCheck size={40} className="text-brand" aria-hidden />
       <h2 className="page-heading">Periksa email Anda</h2>
       <p>
         Permintaan registrasi diterima. Jika alamat email dapat digunakan,

@@ -32,7 +32,7 @@ export function CardScreen() {
     return (
       <div className="stack-large">
         <header>
-          <p className="eyebrow text-primary">Keanggotaan SRC</p>
+          <p className="eyebrow text-brand">Keanggotaan SRC</p>
           <h1 className="page-heading">Kartu Anggota</h1>
         </header>
         <Card className="stack-medium">
@@ -84,7 +84,7 @@ export function CardScreen() {
     <div className="stack-large">
       <header className="page-header">
         <div>
-          <p className="eyebrow text-primary">Selalu siap di setiap langkah</p>
+          <p className="eyebrow text-brand">Selalu siap di setiap langkah</p>
           <h1 className="page-heading">Kartu Anggota</h1>
           <p className="muted">
             Identitas Anda sebagai bagian dari Sore Running Club.
@@ -131,7 +131,7 @@ export function CardScreen() {
         </section>
         <div className="stack-medium card-support">
           <Card className="stack-medium">
-            <ScanLine size={28} className="text-primary" aria-hidden />
+            <ScanLine size={28} className="text-brand" aria-hidden />
             <h2 className="text-heading-3">Datang, tunjukkan, lalu berlari.</h2>
             <ol className="steps-list">
               <li>Buka kartu saat tiba di kegiatan SRC.</li>
