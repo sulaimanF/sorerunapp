@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\MemberProfile;
+use App\Policies\MemberProfilePolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         config(['mail.mailers.smtp.timeout' => 15]);
+        Gate::policy(MemberProfile::class, MemberProfilePolicy::class);
 
         RateLimiter::for('verification-resend', function (Request $request): array {
             return [

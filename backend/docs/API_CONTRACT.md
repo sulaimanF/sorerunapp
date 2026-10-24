@@ -286,3 +286,7 @@ Email verifikasi baru membuka FRONTEND_URL/verify-email dengan signed API URL di
 forUser(), TTL 60 menit, authenticated owner, hash email/version, dan transaksi aktivasi tetap berlaku. Email lama dengan URL API langsung tetap valid selama belum kedaluwarsa. Setelah upgrade, restart queue worker dan gunakan email baru untuk mencoba alur browser. Postman tahap 05 diperbarui untuk mengekstrak URL API dari format email lama maupun fragment baru.
 
 CORS mengekspos Retry-After dan X-Request-ID agar browser dapat menampilkan cooldown/support ID yang sudah diberikan API. Origin/credentials tetap dibatasi seperti sebelumnya. Tidak ada endpoint atau migration baru. Kartu tetap hanya tersedia melalui API privat; frontend merender credential asli menjadi SVG QR hitam-putih dengan quiet zone empat modul, tanpa mengirim data kartu melalui SSR.
+
+## Tahap 07 — Biodata profil sendiri
+
+Tambahan `GET /api/v1/me/profile` dan `PATCH /api/v1/me/profile` menggunakan sesi browser, ownership, CSRF untuk PATCH, response no-store, serta audit field yang berubah. Kontrak lengkap: [PROFILE_API_STAGE_07.md](PROFILE_API_STAGE_07.md). Endpoint akun dan alur login tahap 06 dipertahankan.

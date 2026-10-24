@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\ValidateLoginJson;
+use App\Http\Middleware\ValidateProfileJson;
 use App\Http\Middleware\ValidateRegistrationJson;
 use App\Support\Http\ApiExceptionRenderer;
 use Illuminate\Console\Scheduling\Schedule;
@@ -28,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-        $middleware->prependToGroup('api', [AssignRequestId::class, ValidateRegistrationJson::class, ValidateLoginJson::class]);
+        $middleware->prependToGroup('api', [AssignRequestId::class, ValidateRegistrationJson::class, ValidateLoginJson::class, ValidateProfileJson::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
