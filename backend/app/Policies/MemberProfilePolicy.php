@@ -12,7 +12,7 @@ class MemberProfilePolicy
 {
     public function view(User $user, MemberProfile $profile): bool
     {
-        return $user->status === AccountStatus::Enabled && (int) $profile->user_id === (int) $user->id;
+        return $user->status === AccountStatus::Enabled && $user->email_verified_at !== null && (int) $profile->user_id === (int) $user->id;
     }
 
     public function update(User $user, MemberProfile $profile): bool

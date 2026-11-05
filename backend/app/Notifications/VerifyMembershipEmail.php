@@ -21,7 +21,7 @@ class VerifyMembershipEmail extends Notification
         return (new MailMessage)->subject('Verifikasi email sorerunapp')->greeting('Halo!')
             ->line('Verifikasi alamat email untuk melanjutkan aktivasi keanggotaan Sore Running Club.')
             ->action('Verifikasi email', $this->url)
-            ->line('Login dengan akun pemilik alamat email sebelum membuka tautan ini. Tautan berlaku selama 60 menit.')
+            ->line('Buka tautan ini lalu konfirmasi Verifikasi Email. Setelah berhasil, Anda dapat login. Tautan berlaku selama 60 menit.')
             ->line('Jika Anda tidak membuat akun ini, abaikan email ini.');
     }
 }

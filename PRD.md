@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi | 1.0 |
-| Tanggal | 13 Oktober 2026 |
+| Versi | 1.2 |
+| Tanggal | 25 Oktober 2026 |
 | Status | Final — disetujui pemilik produk sebagai acuan pengembangan sorerunapp |
 | Nama produk | sorerunapp — Sore Running Club (SRC) |
 | Bahasa aplikasi | Bahasa Indonesia |
@@ -82,7 +82,7 @@ Ketentuan berikut sudah ditetapkan oleh pemilik produk dan menjadi acuan impleme
 | A-06 | QR tetap dapat digunakan pada banyak event; QR dapat dicabut dan diganti |
 | A-07 | Check-in dilakukan petugas yang login; tidak tersedia self check-in |
 | A-08 | Check-in MVP memerlukan koneksi internet |
-| A-09 | Login menggunakan email dan password |
+| A-09 | Login menggunakan email dan password, hanya setelah email terverifikasi; akun tetap harus enabled |
 | A-10 | Zona waktu awal event adalah Asia/Jakarta; waktu sistem disimpan dalam UTC |
 | A-11 | Anggota di bawah umur diperbolehkan; tidak ada batas usia minimum otomatis pada registrasi MVP |
 
@@ -109,7 +109,7 @@ Ketentuan berikut sudah ditetapkan oleh pemilik produk dan menjadi acuan impleme
 | Aktor | Kebutuhan utama | Akses |
 | --- | --- | --- |
 | Pengunjung | Mengetahui cara bergabung | Halaman publik, registrasi, login |
-| Pendaftar belum terverifikasi | Menyelesaikan aktivasi | Status registrasi, kirim ulang verifikasi, pengelolaan akun terbatas |
+| Pendaftar belum terverifikasi | Menyelesaikan aktivasi | Halaman publik hasil registrasi, verifikasi melalui tautan email, dan kirim ulang; tidak dapat login atau mengakses data privat |
 | Member | Menggunakan keanggotaan dan mengikuti kegiatan | Profil sendiri, kartu QR, event internal, riwayat sendiri |
 | Petugas event | Mencatat peserta dengan cepat | Scanner, pencarian manual, dan daftar hadir pada event penugasan |
 | Admin | Mengelola komunitas | Anggota, status keanggotaan, event, penugasan, laporan, koreksi, audit |
@@ -231,7 +231,8 @@ Contoh format nomor member adalah RUN-000125; prefix final belum ditentukan. Jan
 3. Backend memvalidasi field, aturan email unik, dan pembatasan request.
 4. Dalam transaksi, backend membuat akun, profil, dan membership pending_verification.
 5. Setelah commit, sistem mengantrekan email verifikasi.
-6. UI menampilkan instruksi memeriksa email, mengirim ulang, atau kembali login.
+6. UI menampilkan instruksi memeriksa email dan tautan kirim ulang publik. Registrasi tidak membuat sesi login.
+7. Pengguna memverifikasi email terlebih dahulu; setelah berhasil baru dapat login.
 
 **Hasil:** satu akun tersimpan; kartu aktif belum tersedia.
 
@@ -242,18 +243,19 @@ Contoh format nomor member adalah RUN-000125; prefix final belum ditentukan. Jan
 **Pemicu:** pengguna membuka tautan verifikasi email.
 
 1. Backend memeriksa signature/token, masa berlaku, dan kecocokan akun/email tujuan.
-2. Jika mekanisme membutuhkan sesi, pengguna login terlebih dahulu lalu kembali ke proses verifikasi.
+2. Verifikasi tersedia tanpa login. Membuka halaman atau GET tautan hanya menampilkan instruksi/readiness, tanpa mengubah email atau membership. Pengguna menekan Verifikasi Email; browser mengirim POST ke tautan bertanda tangan yang sama dengan proteksi CSRF sesi tamu.
 3. Sistem menandai email terverifikasi.
 4. Sistem memeriksa kelengkapan profil dan status akun.
 5. Dalam transaksi, membership pending_verification diaktifkan, nomor member unik dialokasikan, dan credential QR dibuat.
 6. Setelah commit, sistem mengirim pemberitahuan aktivasi.
-7. Member dapat membuka kartu setelah login.
+7. UI menampilkan hasil verifikasi dan tautan Masuk ke Akun. Verifikasi tidak membuat sesi login otomatis. Login hanya diterima setelah email terverifikasi dan akun enabled; kartu tetap mengikuti eligibility membership.
+8. Jika profil belum lengkap, email dapat terverifikasi tanpa menerbitkan nomor/QR. Member dapat login untuk melengkapi profil dan mengaktifkan membership pending.
 
 **Hasil:** satu membership active, satu nomor member, satu QR aktif.
 
 **Pengecualian:** tautan expired menawarkan kirim ulang. Tautan invalid tidak mengubah data. Klik ulang bersifat idempotent dan tidak menerbitkan nomor/QR kedua. Tautan lama untuk alamat yang sudah berubah tidak memverifikasi alamat baru. Akun blocked tidak diaktifkan oleh tautan.
 
-**Asumsi parameter:** masa berlaku tautan 60 menit, cooldown kirim ulang 60 detik; pembatasan tambahan per akun/IP ditetapkan saat implementasi.
+**Parameter:** masa berlaku tautan 60 menit; cooldown penerima 60 detik. Kirim ulang menerima email pada halaman publik dengan CSRF dan rate limit berbasis email/IP. Respons 202 dan Retry-After 60 detik sama untuk email tidak terdaftar, sudah terverifikasi, blocked, belum eligible, atau masih cooldown; tidak menjanjikan email terkirim. Rate limit request dapat menghasilkan 429 secara seragam, tanpa lookup status akun.
 
 ### 9.3 BP-03 — Penggunaan kartu member
 
@@ -352,8 +354,8 @@ Semua requirement P0 wajib untuk rilis MVP. P1 dapat ditambahkan setelah alur in
 | ID | Prioritas | Requirement | Kriteria penerimaan |
 | --- | --- | --- | --- |
 | FR-01 | P0 | Registrasi dan validasi profil | Input valid membuat satu akun/profil/membership pending; invalid tidak membuat data parsial |
-| FR-02 | P0 | Verifikasi email dan resend | Tautan valid mengaktifkan satu kali; expired/invalid ditolak; resend mempunyai cooldown |
-| FR-03 | P0 | Login/logout/reset password | Login valid membuka sesi; logout mengakhiri sesi; reset tidak mengubah status membership dan tidak membuka akun blocked |
+| FR-02 | P0 | Verifikasi email dan resend | Konfirmasi POST tautan valid tanpa login mengaktifkan satu kali jika eligible; GET tidak mengubah data; expired/invalid ditolak; resend publik generik dengan cooldown |
+| FR-03 | P0 | Login/logout/reset password | Email/password valid, akun enabled, dan email terverifikasi membuka sesi; email belum terverifikasi ditolak tanpa sesi authenticated; sesi lama unverified dicabut pada request privat berikutnya; login berhasil selalu membuka beranda; logout mengakhiri sesi; logout/sesi berakhir menuju /login tanpa returnTo; reset tidak memverifikasi email atau mengubah status membership/blokir |
 | FR-04 | P0 | Profil dan perubahan email | Member hanya mengubah profil sendiri; email baru aktif setelah diverifikasi; data wajib tidak dapat dikosongkan |
 | FR-05 | P0 | Nomor member dan QR | Nomor unik/stabil; hanya satu QR aktif; QR tidak mengandung data pribadi atau token login |
 | FR-06 | P0 | Status akun/membership | Admin dapat melakukan perubahan yang diizinkan dengan alasan; backend menolak check-in yang tidak memenuhi status |
@@ -374,7 +376,7 @@ Semua requirement P0 wajib untuk rilis MVP. P1 dapat ditambahkan setelah alur in
 
 | Area | Halaman MVP |
 | --- | --- |
-| Publik | Informasi komunitas, registrasi, login, lupa/reset password, hasil verifikasi |
+| Publik | Informasi komunitas, registrasi, login, lupa/reset password, verifikasi email, kirim ulang, hasil registrasi/verifikasi |
 | Member | Beranda/status aktivasi, profil, kartu QR, daftar/detail event, riwayat hadir, informasi status membership |
 | Petugas | Daftar event tugas, scanner event, preview anggota, hasil check-in, pencarian manual, daftar hadir |
 | Admin | Ringkasan, daftar/detail anggota, status/QR, daftar/form/detail event, penugasan, kehadiran/koreksi, laporan/ekspor, audit |
@@ -516,6 +518,11 @@ Laporan membedakan registrasi pending, membership aktif, serta partisipasi. Keha
 | AC-20 | Koreksi dan ekspor laporan | Total hanya attendance valid; koreksi/ekspor tercatat; CSV aman dari formula input |
 | AC-21 | Nama berisi karakter HTML/script | Ditampilkan sebagai teks; tidak dieksekusi pada portal, scanner, laporan |
 | AC-22 | Pemulihan backup uji | Akun, membership, relasi, dan attendance pulih serta jumlahnya diverifikasi |
+| AC-23 | Login sebelum verifikasi dan sesi lama unverified | Kredensial benar ditolak 403 EMAIL_NOT_VERIFIED tanpa sesi login; password salah tetap 401 generik; sesi lama unverified ditolak/dicabut pada request privat berikutnya |
+| AC-24 | Tautan dibuka tanpa login | GET tidak mengubah data; POST konfirmasi dengan signature/expiry/email/version valid dan CSRF memverifikasi; respons publik tidak mengandung nomor member, profil, atau QR; setelah berhasil tetap perlu login |
+| AC-25 | Kirim ulang publik | Email tidak dikenal/sudah verified/blocked dan cooldown menerima respons generik sama; hanya akun pending yang eligible dijadwalkan; input invalid, CSRF, dan rate limit tetap diperiksa |
+| AC-26 | Navigasi login/logout | Root / menuju /login; tamu/sesi berakhir/logout menuju /login tanpa returnTo; semua login berhasil menuju /beranda, termasuk dari tautan login lama; parameter tujuan diabaikan dan dibersihkan |
+| AC-27 | Perpindahan menu | Sesi valid dapat berpindah beranda/profil/kartu tanpa login ulang; banner sesi aktif tetap menawarkan lanjut ke beranda |
 
 ## 17. Risiko dan mitigasi
 
@@ -627,3 +634,13 @@ Frontend berkomunikasi dengan Laravel API. Satu repository tidak mengharuskan ke
 | Idempotent | Pengulangan operasi tidak menghasilkan efek bisnis ganda |
 | Audit log | Catatan pelaku, waktu, tindakan, dan perubahan untuk penelusuran |
 | Voided | Catatan hadir yang dibatalkan melalui koreksi, tetap disimpan untuk audit |
+
+
+## 20. Riwayat revisi
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.1 | 24 Oktober 2026 | Verifikasi email wajib sebelum login; verifikasi publik dengan konfirmasi POST, resend publik generik, dan penolakan sesi lama unverified. Status dokumen tetap final. |
+| 1.2 | 25 Oktober 2026 | Tujuan login tetap beranda; URL login/logout/sesi berakhir bersih tanpa returnTo; navigasi anggota tetap memakai sesi aktif. Status final. |
+
+Revisi tahap 7 — konfirmasi logout: klik tombol Keluar dari akun membuka dialog Ya, Keluar / Tidak. Hanya konfirmasi Ya, Keluar yang mengakhiri sesi. Tidak, Escape, atau menutup dialog mempertahankan sesi dan data anggota. Logout sukses menuju /login; penanganan kegagalan dan sesi berakhir tetap berlaku.

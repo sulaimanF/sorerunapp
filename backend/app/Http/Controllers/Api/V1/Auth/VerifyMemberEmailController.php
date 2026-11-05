@@ -17,8 +17,19 @@ class VerifyMemberEmailController extends Controller
 {
     public function __invoke(Request $request, string $id, string $hash, VerifyEmailAndActivateMembership $action): JsonResponse
     {
-        $version = $request->query('v');
-        $result = $action->handle((int) Auth::guard('web')->id(), $id, $hash, is_string($version) ? $version : '', RequestId::get($request), (int) $request->session()->get(BrowserSession::AUTH_VERSION));
+        // The signature middleware authenticates the URL, not a browser account.
+        if ($request->isMethod('GET')) {
+            return response()->json(['data' => ['result' => 'verification_link_ready'], 'meta' => ['request_id' => RequestId::get($request)]])
+                ->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
+        }
+
+        // Retire a legacy unverified session before proof makes its subject eligible.
+        $existing = Auth::guard('web')->user();
+        if ($existing !== null && $existing->email_verified_at === null) {
+            BrowserSession::end($request);
+        }
+        $version = (string) $request->query('v');
+        $result = $action->handle((int) $id, $id, $hash, $version, RequestId::get($request), (int) $version, publicProof: true);
 
         return (new EmailVerificationResultResource($result))->response()->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
     }

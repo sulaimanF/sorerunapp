@@ -1006,3 +1006,63 @@ input[type="checkbox"][aria-invalid="true"] {
     fill: var(--qr-foreground) !important;
   }
 }
+
+/* BEGIN: SRC auth layout */
+.src-auth-root > .src-auth-login-footer,
+.src-auth-root > .src-auth-secondary-links {
+  margin-top: 28px;
+}
+
+.src-auth-login-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.src-auth-login-footer > * {
+  margin: 0;
+}
+
+.src-auth-register-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: 4px;
+}
+
+.src-auth-secondary-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.src-auth-secondary-links > * {
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  .src-auth-login-footer a,
+  .src-auth-secondary-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+/* END: SRC auth layout */
+
+/* BEGIN: SRC stage07 logout confirmation */
+.logout-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.logout-confirmation-actions > .button {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+/* END: SRC stage07 logout confirmation */

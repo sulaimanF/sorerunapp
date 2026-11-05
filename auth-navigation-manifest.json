@@ -1,0 +1,81 @@
+{
+  "revision": "auth-navigation-ui-2026-10-25",
+  "apply": [
+    "node scripts/apply-auth-navigation.cjs",
+    "node scripts/centralize-auth-css.cjs"
+  ],
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "62b5ee70fa41d0b85f5de91a5edaaa0d92d4b95fa1744594148278785d930a2b"
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "sha256": "66f87bc86fa61aa6f5e37757cae1931dd30347b6bb0bb5cddca9e7536c2fc63e"
+    },
+    {
+      "path": "PRD.md",
+      "sha256": "62e6c688cd7accfb0af2188688cce4b9851dad30573e4e8ae36f9eb80ee19abd"
+    },
+    {
+      "path": "SYSTEM_DESIGN.md",
+      "sha256": "94d35d58041274296fff8c00bfd6e87b34fdc3966c69f8af7cf321a07b402602"
+    },
+    {
+      "path": "docs/PANDUAN_AUTH_NAVIGATION.md",
+      "sha256": "c31410190e6c06f600b7487a011565f1e162b9319e1eff2534ec12137e265e1d"
+    },
+    {
+      "path": "docs/VERIFICATION_AUTH_NAVIGATION.md",
+      "sha256": "d7a6fcacbeac11ee61374e9af9dc50050168bb5d000b3fab912e0c08359c0a4e"
+    },
+    {
+      "path": "frontend/src/app/(public)/resend-verification/page.tsx",
+      "sha256": "42e0de54082aab3b331fad1dd73f59d94905db8596c22af1526ecb8ce7519e84"
+    },
+    {
+      "path": "frontend/src/features/auth/components/login-form.tsx",
+      "sha256": "aae989bd62165d53383e09429af18dba0750c504b6d13eb1b0ada9d5fe27e604"
+    },
+    {
+      "path": "frontend/src/features/auth/components/member-shell.tsx",
+      "sha256": "038d6d93c95458c1ed24ded5b897083f7bda9ef084d2478994339623f2c6a0bf"
+    },
+    {
+      "path": "frontend/src/features/auth/components/resend-verification-form.tsx",
+      "sha256": "ccf437a7e3700975fbfef1a87b0e2158ebec75481fa0afffababb1a1c112cf24"
+    },
+    {
+      "path": "frontend/src/features/auth/components/verification-screen.tsx",
+      "sha256": "21f92378dcec9c51403003911f4b046bfe98420a5c7ca42330863326824aeec3"
+    },
+    {
+      "path": "frontend/src/features/auth/navigation.ts",
+      "sha256": "0dfbd270f521204ae7d56c80fd2fec330fbb2088f157a598c5a6990d5b2450cb"
+    },
+    {
+      "path": "frontend/tests/browser/auth-navigation.spec.ts",
+      "sha256": "8536d4d42e0f638cde89ed246de3b5b93caeca9c697cae2c8b34f2e148573aba"
+    },
+    {
+      "path": "frontend/tests/browser/membership.spec.ts",
+      "sha256": "1aeb2a44552ab1e5c09e9c67ffe4c25c08a59f0f445edc9b6e8eca6ba0d7138d"
+    },
+    {
+      "path": "frontend/tests/support/fake-member-api.ts",
+      "sha256": "1b014753219b21fae62aba84c0dd205f6a0b665b6527bafed54f9de028b0781d"
+    },
+    {
+      "path": "frontend/tests/unit/membership.test.ts",
+      "sha256": "8c28ad4bcc63e222312bca71691387967850671c903897ab4b42f0a57a46ccda"
+    },
+    {
+      "path": "scripts/apply-auth-navigation.cjs",
+      "sha256": "ac0d03aec962416ca5486670f7bf430da0b6c97aaef187f26f2d5c2dadd13c2d"
+    },
+    {
+      "path": "scripts/centralize-auth-css.cjs",
+      "sha256": "c85d434fa32cb13fee527055d2f4254299fb9bf96ef78769b48cd7c08a0d0948"
+    }
+  ]
+}

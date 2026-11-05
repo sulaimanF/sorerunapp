@@ -17,20 +17,20 @@ class VerifyEmailAndActivateMembership
 {
     public function __construct(private readonly ActivatePendingMembership $activation) {}
 
-    public function handle(int $actorId, string $id, string $emailHash, string $version, string $requestId, int $sessionVersion): array
+    public function handle(int $actorId, string $id, string $emailHash, string $version, string $requestId, int $sessionVersion, bool $publicProof = false): array
     {
         if ((string) $actorId !== $id) {
             throw new ApiProblem('VERIFICATION_OWNER_MISMATCH', 'Tautan ini bukan milik akun yang sedang login.', 403);
         }
 
-        return DB::transaction(function () use ($actorId, $emailHash, $version, $requestId, $sessionVersion): array {
+        return DB::transaction(function () use ($actorId, $emailHash, $version, $requestId, $sessionVersion, $publicProof): array {
             // Consistent order across activation, resend and card: membership -> user -> sequence -> credential.
             $membership = Membership::query()->where('user_id', $actorId)->lockForUpdate()->first();
             $user = User::query()->whereKey($actorId)->lockForUpdate()->first();
             if ($user === null || $user->status !== AccountStatus::Enabled) {
                 throw new ApiProblem('ACCOUNT_BLOCKED', 'Akun tidak dapat digunakan.', 403);
             }
-            if ($user->auth_version !== $sessionVersion) {
+            if (! $publicProof && $user->auth_version !== $sessionVersion) {
                 throw new ApiProblem('SESSION_EXPIRED', 'Sesi sudah berakhir. Silakan masuk kembali.', 401);
             }
             if (! hash_equals(sha1($user->email), $emailHash) || (string) $user->auth_version !== $version) {
@@ -49,10 +49,10 @@ class VerifyEmailAndActivateMembership
             $now = CarbonImmutable::now('UTC');
             if ($user->email_verified_at === null) {
                 $user->forceFill(['email_verified_at' => $now])->save();
-                $this->audit($actorId, (int) $membership->id, 'member.email_verified', $requestId, $now);
+                $this->audit($publicProof ? null : $actorId, (int) $membership->id, 'member.email_verified', $requestId, $now);
             }
 
-            return $this->activation->handleLocked($user, $membership, $requestId, $now);
+            return $this->activation->handleLocked($user, $membership, $requestId, $now, $publicProof);
         }, attempts: 3);
     }
 
@@ -61,7 +61,7 @@ class VerifyEmailAndActivateMembership
         return ['result' => $result, 'membership' => ['status' => $membership->status->value, 'member_number' => $membership->member_number]];
     }
 
-    private function audit(int $actorId, int $membershipId, string $action, string $requestId, CarbonImmutable $now): void
+    private function audit(?int $actorId, int $membershipId, string $action, string $requestId, CarbonImmutable $now): void
     {
         (new AuditLog)->forceFill([
             'actor_user_id' => $actorId, 'action' => $action, 'target_type' => 'membership',

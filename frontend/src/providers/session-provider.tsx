@@ -90,7 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setTransition("idle");
       announce();
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
+      if (error instanceof ApiError && (error.status === 401 || error.code === "EMAIL_NOT_VERIFIED")) {
         setTransition("idle");
         announce();
         return;

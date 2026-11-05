@@ -69,6 +69,14 @@ final class MemberProfileTest extends TestCase
 
     private function signedIn(User $user): void
     {
+        // email-first: verify fixture before login, using the same domain transaction.
+        if ($user->fresh()->email_verified_at === null) {
+            app(VerifyEmailAndActivateMembership::class)->handle(
+                (int) $user->id, (string) $user->id, sha1($user->email), (string) $user->auth_version,
+                (string) Str::uuid(), $user->auth_version, publicProof: true,
+            );
+        }
+
         $this->csrf();
         $this->login($user)->assertOk();
     }
@@ -99,9 +107,9 @@ final class MemberProfileTest extends TestCase
             ->assertJsonPath('data.birth_date', '2012-02-29')->assertJsonPath('data.phone', '+6281234567890')
             ->assertJsonPath('data.profile_complete', true);
         self::assertSame('Anggota Profil Revisi', $user->fresh()->name);
-        self::assertNull($user->fresh()->email_verified_at);
-        self::assertSame(MembershipStatus::PendingVerification, $user->membership->fresh()->status);
-        self::assertSame(0, $user->membership->credentials()->count());
+        self::assertNotNull($user->fresh()->email_verified_at);
+        self::assertSame(MembershipStatus::Active, $user->membership->fresh()->status);
+        self::assertSame(1, $user->membership->credentials()->count());
         $audit = AuditLog::query()->where('action', 'member.profile_updated')->where('actor_user_id', $user->id)->sole();
         self::assertSame((int) $user->id, (int) $audit->actor_user_id);
         self::assertSame('member_profile', $audit->target_type);
@@ -183,7 +191,7 @@ final class MemberProfileTest extends TestCase
         $this->csrf();
         $this->requestJson('GET', '/api/v1/me/profile')->assertUnauthorized();
         $this->requestJson('PATCH', '/api/v1/me/profile', $this->payload())->assertUnauthorized();
-        $this->login($user)->assertOk();
+        $this->signedIn($user);
         $this->requestJson('PATCH', '/api/v1/me/profile', $this->payload(), false)->assertStatus(419);
         $this->requestJson('PATCH', '/api/v1/me/profile', $this->payload(), true, ['Origin' => '', 'Referer' => ''])->assertUnauthorized();
         self::assertSame('Kota Uji', $user->memberProfile->fresh()->city);
@@ -196,7 +204,7 @@ final class MemberProfileTest extends TestCase
         $user->forceFill(['auth_version' => $user->auth_version + 1])->save();
         $this->requestJson('PATCH', '/api/v1/me/profile', $this->payload())->assertUnauthorized();
         $this->csrf();
-        $this->login($user)->assertOk();
+        $this->signedIn($user);
         $user->forceFill(['status' => AccountStatus::Blocked])->save();
         $this->requestJson('GET', '/api/v1/me/profile')->assertForbidden();
         self::assertSame('Kota Uji', $user->memberProfile->fresh()->city);

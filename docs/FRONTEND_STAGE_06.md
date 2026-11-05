@@ -1,3 +1,5 @@
+> **ALUR EMAIL-FIRST (24 Oktober 2026):** aturan login/verifikasi lama pada dokumen tahap ini telah digantikan oleh `docs/PANDUAN_EMAIL_FIRST.md` dan `docs/API_EMAIL_FIRST.md`. Verifikasi email wajib sebelum login; pengujian profil memakai akun terverifikasi.
+
 # Frontend Stage 06
 
 Implementasi UI anggota berdasarkan dokumen final sorerunapp. Petunjuk penerapan: [PANDUAN_TAHAP_06.md](PANDUAN_TAHAP_06.md).

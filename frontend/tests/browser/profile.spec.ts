@@ -186,6 +186,8 @@ test("late profile update cannot populate the next account after logout", async 
     const patch = page.waitForRequest((request) => request.url().includes("/me/profile") && request.method() === "PATCH");
     await save(page); await patch;
     await page.getByRole("button", { name: "Keluar dari akun" }).click();
+    // stage07: confirm logout before expecting the signed-out result.
+    await page.getByRole("dialog", { name: "Keluar dari akun?", exact: true }).getByRole("button", { name: "Ya, Keluar", exact: true }).click();
     await expect(page).toHaveURL(/\/login(?:\?|$)/);
     state.ownerId = 43; state.email = "profile-second@example.test";
     state.profile = { ...state.profile, full_name: "Anggota Kedua", city: "Kota Kedua" };

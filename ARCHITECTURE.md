@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.0 |
-| Tanggal | 14 Oktober 2026 |
+| Versi dokumen | 1.2 |
+| Tanggal | 25 Oktober 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Acuan bisnis | PRD.md final, termasuk revisi versi teknologi |
@@ -191,14 +191,23 @@ Attendance membaca status dari Auth/Membership/Credential/Event dan menulis keha
 
 1. Browser meminta GET /sanctum/csrf-cookie ke Laravel dengan credentials.
 2. Browser mengirim POST /api/v1/auth/login dengan email/password serta header X-XSRF-TOKEN yang sesuai.
-3. Laravel memeriksa akun, membuat session dan meregenerasi session ID setelah login.
+3. Laravel memeriksa password, akun enabled, dan email_verified_at. Email belum terverifikasi menghasilkan 403 EMAIL_NOT_VERIFIED setelah password valid, tanpa Auth::login atau session authenticated. Password salah/akun tidak dikenal/blocked tetap memakai respons kredensial generik. Setelah seluruh syarat lulus, buat session dan regenerasi ID.
 4. Browser meminta GET /api/v1/auth/me untuk identitas, roles, dan status membership.
-5. Request terlindungi menggunakan auth:sanctum, guard akun enabled, policy objek, dan guard verifikasi jika operasi membutuhkan email verified.
+5. Semua request privat menggunakan auth:sanctum, guard akun enabled, auth_version, email verified wajib, dan policy objek. Sesi lama unverified ditolak/dihapus pada request berikutnya; frontend membersihkan cache privat. Action sensitif memeriksa ulang eligibility di bawah row lock.
 6. Logout mengakhiri session aktif dan membersihkan cache frontend. Pemblokiran akun menolak request berikutnya dan mencabut session terkait.
 
 Cookie session: HttpOnly, Secure pada produksi, SameSite=Lax dalam topologi same-site yang dipilih. Cookie XSRF berbeda dari session: harus dapat dibaca client untuk membentuk header CSRF. Axios dikonfigurasi withCredentials dan pengiriman XSRF untuk origin API yang dipercaya. Browser tidak menyimpan bearer token di localStorage pada desain ini.
 
-CORS tidak menggunakan wildcard bersama credentials. Endpoint auth juga diberi rate limit. Pendaftar unverified boleh login untuk melihat status/resend dan melengkapi profil, tetapi tidak memperoleh kartu aktif atau hak check-in.
+CORS tidak menggunakan wildcard bersama credentials. Endpoint auth juga diberi rate limit. Pendaftar unverified tidak dapat login. Verifikasi dan resend tersedia melalui flow publik yang terlindungi signature/CSRF/rate limit. User verified dengan profil incomplete boleh login dan melengkapi profil; membership/QR tetap pending hingga eligibility terpenuhi.
+
+### 7.1.1 Navigasi autentikasi tetap
+
+- Root / memakai redirect sementara 307 ke /login pada next.config.ts, sebelum render halaman. Halaman root yang hanya memanggil redirect dihapus setelah backup agar tidak memicu validasi instant pada halaman pengalihan. Tidak mematikan Cache Components/Partial Prefetching.
+- Tamu yang membuka route privat, sesi berakhir, dan logout berhasil menuju /login. Semua login berhasil menuju /beranda. Tidak menyimpan/meneruskan halaman sebelumnya sebagai tujuan login.
+- Form login tidak membaca returnTo sebagai tujuan. Query/hash pada tautan login lama dibersihkan memakai history.replaceState setelah mount; destination tetap berasal dari konstanta internal.
+- Perpindahan menu saat sesi valid tetap ke halaman yang dipilih. Logout dan guard sesi memakai tujuan yang sama sehingga tidak saling menimpa dengan parameter halaman asal.
+- Banner sesi aktif/manual lanjut dipertahankan; tautan lanjut menuju /beranda. Hasil verifikasi, termasuk profil incomplete, menawarkan /login; profil dapat dilengkapi setelah masuk melalui navigasi anggota.
+- HTTP auth/session, CSRF, pembersihan cache privat, email verified wajib, dan permission backend tetap berlaku. Gangguan jaringan tidak diperlakukan sebagai logout berhasil.
 
 ### 7.2 Izin
 
@@ -227,10 +236,12 @@ sequenceDiagram
     A-->>U: Instruksi verifikasi
     Q->>D: Ambil delivery pending
     Q-->>U: Email dengan tautan verifikasi
-    U->>A: Buka tautan dan login bila diperlukan
+    U->>A: Buka tautan, lalu konfirmasi POST dengan CSRF
     A->>D: Verifikasi, nomor member, QR dalam transaksi
     D-->>A: Commit satu aktivasi
-    A-->>U: Membership aktif
+    A-->>U: Hasil verifikasi, tanpa sesi login
+    U->>A: Login email dan password
+    A-->>U: Sesi hanya jika enabled dan verified
 ```
 
 ### 8.1 Registrasi
@@ -239,11 +250,11 @@ sequenceDiagram
 - Backend menerima nama, tanggal lahir valid, telepon normal, kota, password/konfirmasi, dan pengakuan versi kebijakan. Foto opsional; password minimal 12 karakter menurut PRD.
 - Transaksi membuat user enabled belum verified, profil lengkap, membership pending_verification, role member, dan notification delivery pending.
 - Respons publik untuk email existing tetap generik tanpa membeberkan status/detail akun. Unique email menangani request paralel. Error field lain dapat ditampilkan spesifik.
-- Email gagal tidak membatalkan registrasi. Resend melalui pengguna yang berhak/cakupan yang aman, cooldown awal 60 detik dan rate limit per akun/IP.
+- Email gagal tidak membatalkan registrasi. Resend publik menerima email yang dinormalisasi dan CSRF; cooldown penerima 60 detik serta rate limit email/IP. Respons generik 202 + Retry-After 60 tidak membocorkan eligibility/status akun, termasuk email tidak dikenal dan cooldown. Registrasi tidak membuat sesi authenticated.
 
 ### 8.2 Verifikasi dan aktivasi atomik
 
-Tautan awal memakai temporary signed URL Laravel, berlaku 60 menit. Default handler authenticated mensyaratkan login dan memeriksa user serta email yang dituju; frontend menyediakan return flow yang dibatasi ke URL internal agar tidak menjadi open redirect. Signature/token lengkap tidak ditulis ke access log.
+Tautan awal memakai temporary signed URL Laravel, berlaku 60 menit. Handler awal bersifat publik: GET memvalidasi signature/expiry dan memberi readiness tanpa mutasi domain; POST dengan body JSON {} dan CSRF sesi tamu mengonfirmasi verifikasi. Subject berasal dari ID/email-hash/auth_version pada URL yang tervalidasi, bukan session atau ID dari body. Sesi akun lain tidak diubah. Frontend meminta klik eksplisit, tidak memverifikasi otomatis saat render, dan tidak membuat sesi login setelah berhasil. Signature/token lengkap tidak ditulis ke access log. URL frontend membawa signed URL dalam fragment, segera dibersihkan dari address bar dan disimpan hanya di memori sampai konfirmasi. Respons publik hanya result (email_verified, already_verified, email_verified_profile_incomplete) dan request_id; tanpa email/nama/nomor/QR. Audit dan issued_by untuk aktivasi dari bukti email publik bernilai NULL karena bukan actor login, target membership tetap tercatat.
 
 Action mengunci membership lalu user, memeriksa signature/email/version dan kelengkapan profil. Jika sudah active, mengembalikan keadaan existing tanpa nomor/QR baru. Jika pending valid, action menandai email verified, mengalokasikan nomor melalui sequence row lock, mengaktifkan membership, membuat credential, dan menyimpan notification aktivasi. Semuanya commit atau rollback bersama.
 
@@ -502,8 +513,9 @@ Path berikut menetapkan batas operasi; spesifikasi request/response lengkap ditu
 | POST /auth/login; POST /auth/logout | Login berlimit / logout authenticated |
 | POST /auth/forgot-password; POST /auth/reset-password | Broker password dan respons publik generik |
 | GET /auth/me | Akun enabled; identitas, role, status sendiri |
-| POST /auth/email-verification/resend | Akun pemilik/flow aman, cooldown dan rate limit |
-| GET /auth/email-verification/{id}/{hash} | Signed, expiry, authenticated owner |
+| POST /auth/email-verification/resend | Publik stateful + CSRF; JSON email; 202 generik + Retry-After 60; cooldown penerima dan limit email/IP |
+| GET /auth/email-verification/{id}/{hash} | Publik signed + expiry; readiness saja tanpa mutasi domain |
+| POST /auth/email-verification/{id}/{hash} | Publik signed + expiry + CSRF; JSON {}; cek email/auth_version/status di bawah lock, verifikasi/aktivasi idempotent; tanpa auto-login |
 | PATCH /me/profile | Update sendiri dengan data wajib |
 | POST /me/email-change; POST /me/email-change/verify | Password confirmation / verifikasi token tujuan |
 | GET /me/membership/card; GET /me/attendances | Kartu eligible / riwayat sendiri |
@@ -717,3 +729,16 @@ Referensi berikut menjadi dasar kemampuan platform. Pemilihan counter, outbox, u
 - [MySQL 8.4 locking reads](https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html).
 - [MySQL 8.4 generated columns](https://dev.mysql.com/doc/refman/8.4/en/create-table-generated-columns.html).
 - [MySQL 8.4 unique index](https://dev.mysql.com/doc/refman/8.4/en/create-index.html).
+
+
+## 21. Revisi autentikasi 1.1 — 24 Oktober 2026
+
+Dokumen tetap final. Tidak ada perubahan schema atau migration baru untuk aturan email-before-login. Kolom email_verified_at/auth_version dan FK nullable audit/issued_by yang tersedia digunakan kembali. Link lama yang masih valid dapat dikonfirmasi melalui POST; GET lama tidak lagi mengaktifkan akun. Tidak mengubah login UX yang sudah dipertahankan pemilik produk.
+
+Pengujian wajib: login unverified tanpa sesi, password salah generik, penolakan sesi lama, GET read-only, POST guest dengan CSRF, signature/expiry/email/version stale, akun blocked/suspended/ended, rollback, parallel activation satu nomor/QR, respons resend seragam dan throttle email/IP, serta verifikasi tidak membuka data privat atau mengganti identitas sesi lain. Kontrak implementasi rinci pada docs/API_EMAIL_FIRST.md.
+
+## 22. Revisi navigasi 1.2 — 25 Oktober 2026
+
+Dokumen tetap final. Navigasi autentikasi memakai /login dan /beranda tetap; penggunaan returnTo sebagai tujuan login dihapus. Pengujian mencakup root redirect, legacy query, session expiry, menu dengan sesi valid, logout dari profil, banner sesi aktif, dan verifikasi publik tanpa auto-login. Tidak ada perubahan API/schema/backend.
+
+Revisi tahap 7 — konfirmasi logout: dialog merupakan state UI frontend. POST /api/v1/auth/logout dan pembersihan cache privat existing hanya dipanggil setelah Ya, Keluar. Pembatalan tidak mengirim request logout. Sesi berakhir atau penolakan autentikasi oleh server tetap ditangani guard tanpa dialog. Tidak ada perubahan endpoint/database; kegagalan logout tetap memakai pemulihan sesi existing.

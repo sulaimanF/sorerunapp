@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Memberships\MembershipCardController;
 use App\Http\Middleware\EnsureCurrentBrowserSession;
 use App\Http\Middleware\RequireBrowserSession;
 use App\Http\Middleware\RequireStatefulRegistration;
+use App\Http\Middleware\ValidatePublicVerificationJson;
 use Illuminate\Support\Facades\Route;
 
 // Protect the legacy scaffold alias with the same rules and output whitelist.
@@ -22,12 +23,16 @@ Route::prefix('v1')->group(function (): void {
         ->middleware([RequireStatefulRegistration::class, 'throttle:registration'])
         ->name('api.v1.auth.register');
 
+    // email-first: public resend
+    Route::post('/auth/email-verification/resend', ResendVerificationEmailController::class)
+        ->middleware([ValidatePublicVerificationJson::class, RequireStatefulRegistration::class, 'throttle:verification-resend'])
+        ->name('api.v1.auth.email-verification.resend');
+
     Route::post('/auth/login', LoginMemberController::class)
         ->middleware([RequireBrowserSession::class, 'throttle:login'])
         ->name('api.v1.auth.login');
 
     Route::middleware([RequireBrowserSession::class, 'auth:sanctum', EnsureCurrentBrowserSession::class])->group(function (): void {
-        Route::post('/auth/email-verification/resend', ResendVerificationEmailController::class)->middleware('throttle:verification-resend')->name('api.v1.auth.email-verification.resend');
         Route::get('/me/profile', ShowMemberProfileController::class)->name('api.v1.me.profile.show');
         Route::patch('/me/profile', UpdateMemberProfileController::class)->middleware('throttle:60,1')->name('api.v1.me.profile.update');
         Route::get('/me/membership/card', MembershipCardController::class)->name('api.v1.me.membership.card');

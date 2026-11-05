@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.1 |
-| Tanggal | 21 Oktober 2026 |
+| Versi dokumen | 1.3 |
+| Tanggal | 25 Oktober 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Jenis dokumen | Design system visual dan pedoman UI/UX |
@@ -344,7 +344,7 @@ Contoh helper password: 'Gunakan minimal 12 karakter.' Contoh error tanggal: 'Ma
 
 | Objek/status | Label UI | Gaya | Catatan |
 | --- | --- | --- | --- |
-| Email unverified | Email belum diverifikasi | Warning | Aksi Kirim Ulang Email |
+| Email unverified | Email belum diverifikasi | Warning | Login ditolak; tautan Kirim Ulang Email publik |
 | Membership pending_verification | Menunggu verifikasi | Warning | Kartu aktif belum tersedia |
 | Membership active | Aktif | Success | Kartu tampil jika syarat lain terpenuhi |
 | Membership suspended | Ditangguhkan | Warning | Jelaskan bantuan pengurus; check-in ditolak |
@@ -370,7 +370,21 @@ Komposisi warna auth: latar halaman Warm Canvas, input/panel form White, teks ut
 
 Halaman hasil registrasi menampilkan instruksi verifikasi dan alamat tujuan yang dimasking jika diperlukan, bukan kartu aktif. Pesan publik email existing mengikuti kontrak generik agar tidak membocorkan akun. Resend menampilkan cooldown dalam detik dan pesan bahwa email sedang diproses, bukan klaim sudah terkirim.
 
-Hasil verifikasi memisahkan berhasil, sudah diverifikasi, kedaluwarsa, invalid, perlu login, dan profil belum lengkap. Setiap keadaan mempunyai langkah lanjut yang sesuai. Tidak menawarkan approval admin karena aktivasi otomatis.
+Alur wajib: Daftar Member → Periksa Email → buka tautan → klik Verifikasi Email → hasil verifikasi → Masuk ke Akun → beranda. Halaman verifikasi dan Kirim Ulang Email dapat dibuka tanpa login. Membuka tautan saja tidak mengubah akun; tombol konfirmasi menampilkan Memverifikasi… sampai respons server. Tidak membuat sesi login otomatis.
+
+Hasil verifikasi memisahkan berhasil, sudah diverifikasi, kedaluwarsa, invalid, dan profil belum lengkap. Berhasil/sudah diverifikasi menampilkan Masuk ke Akun; profil belum lengkap tetap menawarkan /login, lalu pengguna masuk ke /beranda dan dapat membuka Profil melalui menu. Invalid/expired menawarkan Kirim Ulang Email. Tidak menawarkan approval admin karena aktivasi otomatis.
+
+Login dengan password benar tetapi email belum terverifikasi menampilkan pesan Verifikasi email Anda sebelum masuk dan tautan Kirim Ulang Email. Pertahankan input pada error. Pertahankan perilaku login awal yang disetujui pemilik produk, termasuk banner sesi aktif/manual lanjut dan countdown khusus rate limit 429; perubahan ini tidak menambahkan auto-redirect atau countdown setelah sukses.
+
+Halaman kirim ulang publik berisi input email berlabel, tombol Kirim Ulang Email, state loading/error, dan respons generik: Jika alamat email memenuhi syarat, email verifikasi akan diproses. Periksa kotak masuk dan spam. Tombol mengikuti Retry-After server, termasuk cooldown 60 detik pada respons diterima. Tidak mengungkap apakah alamat terdaftar, blocked, atau sudah terverifikasi; tidak menyimpan email/signed URL pada storage browser.
+
+#### Susunan tautan auth yang disetujui — 25 Oktober 2026
+
+- Login: kelompok footer berada 28 px setelah tombol Masuk; baris Belum menjadi anggota? + Daftar Member dipusatkan, lalu tautan Belum menerima email verifikasi? pada baris terpisah di bawahnya dengan gap 12 px.
+- Verifikasi email: Kirim Ulang Email dan Kembali ke Login disusun vertikal, rata kiri. Kelompok tautan dimulai 28 px setelah tombol Verifikasi Email, gap antartautan 12 px.
+- Kirim ulang: Kembali ke Login berada 28 px di bawah tombol Kirim Ulang Email, rata kiri.
+- Pusatkan styling auth di frontend/src/app/globals.css dengan selector berprefiks src-auth- untuk spacing dan layout; tidak menggunakan file auth-layout.css atau import CSS pada komponen auth; warna, font, ukuran kontrol, state error/loading/cooldown dan token Sunset existing tetap. Target sentuh minimum tetap 44 px pada perangkat sentuh.
+- URL masuk adalah /login, tanpa returnTo. Login berhasil selalu /beranda. Banner sesi aktif tetap menunggu aksi manual lanjut ke beranda; tidak menambahkan auto-login atau timer sukses.
 
 ### 11.2 Beranda member
 
@@ -516,7 +530,9 @@ Contoh empty state member: 'Belum ada riwayat kegiatan. Kehadiran akan muncul se
 | Konteks | Copy acuan |
 | --- | --- |
 | CTA registrasi | Daftar Member |
-| Setelah registrasi | Periksa email Anda untuk memverifikasi akun. |
+| Setelah registrasi | Periksa email Anda dan selesaikan verifikasi sebelum masuk. |
+| Login email belum terverifikasi | Verifikasi email Anda sebelum masuk. |
+| Setelah verifikasi | Email terverifikasi. Silakan masuk ke akun Anda. |
 | Resend diterima | Permintaan pengiriman ulang diproses. Periksa kotak masuk dan folder spam. |
 | Kartu aktif | Tunjukkan QR ini kepada petugas saat mengikuti kegiatan. |
 | Preview scan | Cocokkan nama dan foto dengan anggota yang hadir. |
@@ -683,3 +699,17 @@ Palet, ukuran, komposisi, dan copy merupakan keputusan desain sorerunapp. Peruba
 | 1.1 | 21 Oktober 2026 | Palet Sunset dari gambar referensi pertama disetujui pemilik produk: #EA6113, #F88F22, #FBB931, #FFE3B3; dilengkapi netral cokelat gelap/terang, tautan Deep Orange, pemetaan token, dan perhitungan kontras baru. |
 
 Revisi 1.1 tetap berstatus final dan menggantikan palet merek sebelumnya. Status success/warning/danger/info serta QR hitam-putih tetap mengikuti aturan yang sama. Perubahan ini memperbarui dokumen terlebih dahulu; penerapan token pada kode aplikasi dan sinkronisasi acuan warna yang disalin ke dokumen lain dilakukan pada tahap implementasi berikutnya. Ukuran, tipografi, proses bisnis, kontrak API, dan aturan akses tidak berubah.
+
+### 20.2 Revisi alur autentikasi
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.2 | 24 Oktober 2026 | Email wajib terverifikasi sebelum login; verifikasi publik dengan tombol eksplisit, resend publik generik, dan state login ditolak. Palet Sunset 1.1, tipografi, dan komponen visual tetap. Status final. |
+
+### 20.3 Revisi navigasi dan susunan tautan
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.3 | 25 Oktober 2026 | Preview susunan tiga halaman auth disetujui dan diterapkan; jarak 28 px setelah tombol, tautan login/footer tersusun sesuai rancangan, navigasi tanpa returnTo. Palet Sunset dan status final tetap. |
+
+Revisi tahap 7 — konfirmasi logout: dialog berjudul Keluar dari akun? dengan teks Apakah Anda ingin logout dari sorerunapp?, tombol Tidak (outline, fokus awal) dan Ya, Keluar (primary Sunset). Escape/penutupan membatalkan dan mengembalikan fokus ke pemicu. Fokus terkurung di dialog; layout responsif 320 px, target tombol minimum 44 px. Styling terpusat di frontend/src/app/globals.css. Proses dan pemulihan logout memakai state existing.

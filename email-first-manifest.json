@@ -1,0 +1,162 @@
+{
+  "prepared": "2026-10-25",
+  "revision": "email-first-2026-10-24",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "18d65519ba1b204b9f2cdace3faebe14682e9a164f53d005c6287b2848dcacb4"
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "sha256": "2de9940b647e2992c742df4f2274073bddde9baabbcbe57d0ce35a036388b37b"
+    },
+    {
+      "path": "PRD.md",
+      "sha256": "a7c8fced6104d02e2ec76c83f9522bf37e43e4ad08f5b6ae7ffcf7f634866b97"
+    },
+    {
+      "path": "SYSTEM_DESIGN.md",
+      "sha256": "0214d330905649c40cde3d65e36cd42babe51de0544bb7da5c365362b7351cc0"
+    },
+    {
+      "path": "backend/app/Actions/Auth/AuthenticateMember.php",
+      "sha256": "e1c94ea122ce081a87163306f28bb272dbdc3b76e2d8ea2d06873441c569974d"
+    },
+    {
+      "path": "backend/app/Actions/Auth/ResendVerificationEmail.php",
+      "sha256": "2afdae4609f13e0fc95d5ef6188bf74bb7b8218d8ede6c4b7f41bf2547288b5b"
+    },
+    {
+      "path": "backend/app/Actions/Memberships/ActivatePendingMembership.php",
+      "sha256": "897d88ac66efd350d29545867887fa2285fd6cef9b3ae92edeec56fad95a19e8"
+    },
+    {
+      "path": "backend/app/Actions/Memberships/IssueMemberCredential.php",
+      "sha256": "3f2096d81c1a07c8fd4ecf5d9d4239a43b86978039003221515e295cfe0948e1"
+    },
+    {
+      "path": "backend/app/Actions/Memberships/VerifyEmailAndActivateMembership.php",
+      "sha256": "142e4fb654520367d08bc9805351d1949da5a26360992981e2e8b65675902191"
+    },
+    {
+      "path": "backend/app/Http/Controllers/Api/V1/Auth/ResendVerificationEmailController.php",
+      "sha256": "80c093d67c0b3bc53dbf6cde21eb3fd18df259574fbf1b9ca731516a82d2b73c"
+    },
+    {
+      "path": "backend/app/Http/Controllers/Api/V1/Auth/VerifyMemberEmailController.php",
+      "sha256": "bbface1698875642c97563f759cb37332f529640daf228acb8101207c42531b8"
+    },
+    {
+      "path": "backend/app/Http/Middleware/EnsureCurrentBrowserSession.php",
+      "sha256": "2ccb9a3f539d00e87ff9b60a115e9a1ebdb1feed46c292a2d63df527db021e5d"
+    },
+    {
+      "path": "backend/app/Http/Middleware/ValidatePublicVerificationJson.php",
+      "sha256": "460511dec47b9f2286e368fec335d90b2e999ad2ffa4352660fdd8e444fb4667"
+    },
+    {
+      "path": "backend/app/Http/Requests/Auth/ResendVerificationRequest.php",
+      "sha256": "f97497146a18a61fed25c10cacb6490dc3456e6eef4fcd3c686e2aaa528ece5a"
+    },
+    {
+      "path": "backend/app/Http/Resources/Auth/EmailVerificationResultResource.php",
+      "sha256": "ba79aa55caa75699b8c1c94eb503002281e28c4b31f4b85a6e15fad50ec62c59"
+    },
+    {
+      "path": "backend/app/Notifications/VerifyMembershipEmail.php",
+      "sha256": "938f1d2abfe9cbed6c5f4619c6fcc2eafafb0efe2e7c658445cf8ee0216e8a3a"
+    },
+    {
+      "path": "backend/routes/email-verification.php",
+      "sha256": "09c3b3d0e6bb3004863312453764f06e5248be46c294afb668a91d9cc03f644d"
+    },
+    {
+      "path": "backend/scripts/verify-email-first.sh",
+      "sha256": "281e60385e2765603d967dbd441a0e52de6d5e932491729ccbaada77fdce5cc9"
+    },
+    {
+      "path": "backend/tests/Feature/Auth/BrowserSessionTest.php",
+      "sha256": "823a6656df94ded7d663614860a23b1c7d6ef163ddeb7b268a92c40c4f95c832"
+    },
+    {
+      "path": "backend/tests/Feature/Auth/EmailVerificationTest.php",
+      "sha256": "5e0fcb44af83c6b94cc546ffce78a2eb90baaff0c8bbc0aa92b469afc0f1f553"
+    },
+    {
+      "path": "backend/tests/Support/VerificationBrowser.php",
+      "sha256": "8aba562e66766489b60ddd67ad0638cfd2578a4b91d54c8524dc575e0f1df384"
+    },
+    {
+      "path": "backend/tests/Support/verification-race-worker.php",
+      "sha256": "e9538ed8a0b3cc8e0c3e719c8c11a7383caca1364971425a3f476a8f3a09740b"
+    },
+    {
+      "path": "docs/API_EMAIL_FIRST.md",
+      "sha256": "26492b24a4ffc328979995e32c2d11c412d83dd322cc56a638f9b3a4f5f75f49"
+    },
+    {
+      "path": "docs/PANDUAN_EMAIL_FIRST.md",
+      "sha256": "bf63c3822ab1c579a9eb71a117b73da4271635249d4ad553f7c0db95ce098d8d"
+    },
+    {
+      "path": "docs/VERIFICATION_EMAIL_FIRST.md",
+      "sha256": "e2aebd6960c4d05f036ff32a94dce32cdd7265aa55c80b98e475e88f49a1b65a"
+    },
+    {
+      "path": "frontend/src/app/(public)/registration-received/page.tsx",
+      "sha256": "1aa96b3345c59f0aca6632843a9916eae333abaf8fa207edcb3aef39e4a4a335"
+    },
+    {
+      "path": "frontend/src/app/(public)/resend-verification/page.tsx",
+      "sha256": "42e0de54082aab3b331fad1dd73f59d94905db8596c22af1526ecb8ce7519e84"
+    },
+    {
+      "path": "frontend/src/features/auth/components/login-form.tsx",
+      "sha256": "a2379a09402de8962a46c70b592fce7ebd97a414fc3d6d4ac536f4b6dd8d134b"
+    },
+    {
+      "path": "frontend/src/features/auth/components/resend-button.tsx",
+      "sha256": "8887ce2e6137c8425fb25e8054cbe3bf5e013998287a8e78b08bbef89799d90f"
+    },
+    {
+      "path": "frontend/src/features/auth/components/resend-verification-form.tsx",
+      "sha256": "30261b07f9be787efba92d6b9363f465f9f3751b14a7e59253e59177b6b3f2c3"
+    },
+    {
+      "path": "frontend/src/features/auth/components/verification-screen.tsx",
+      "sha256": "8e39528c7acbde7d5607f94c783aeac7962176834267ae1d638cfe20f8f92463"
+    },
+    {
+      "path": "frontend/src/features/auth/services.ts",
+      "sha256": "5b07b246e2eb942b3e702f8e50a10421103038c80f8df2529abb6a8627b320d1"
+    },
+    {
+      "path": "frontend/src/lib/query-client.ts",
+      "sha256": "1f941d6c11916e55a8bed3d9e183830bb3daa26d44de5e458601062e79287b2d"
+    },
+    {
+      "path": "frontend/src/providers/session-provider.tsx",
+      "sha256": "9f0ac0a9101af79f9a1b7548357333b2c859579b531282099b6660b4c68cfbca"
+    },
+    {
+      "path": "frontend/tests/browser/membership.spec.ts",
+      "sha256": "1f85eec64087dfcb31be2bc6151c455044cdef03c348a03f63fff8c6e5f50baf"
+    },
+    {
+      "path": "postman/sorerunapp-email-first.postman_collection.json",
+      "sha256": "41456c55117e39aad3c20023c505b14557399bc945499249b6882d4e5c2f368e"
+    },
+    {
+      "path": "postman/sorerunapp-email-first.postman_environment.json",
+      "sha256": "0bc7f0aa654c20b785365e3c99dd758a138280d0cc0431096ad41fa757a7e83e"
+    },
+    {
+      "path": "postman/verify-email-first.cjs",
+      "sha256": "c91bf8161427c0a438da669b2daf5666c5cabae2ed590a7d9c155b25506a11f8"
+    },
+    {
+      "path": "scripts/apply-email-first.cjs",
+      "sha256": "f24c4821fd7fdd6f24baeb274a4e486209dbd6a39e7aef8823f857dccd17c819"
+    }
+  ]
+}

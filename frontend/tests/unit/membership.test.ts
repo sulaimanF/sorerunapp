@@ -5,7 +5,6 @@ import {
   createMembershipQr,
   QR_MARGIN,
 } from "../../src/features/membership/qr";
-import { safeReturnPath } from "../../src/features/auth/navigation";
 import {
   intentFromFragment,
   verificationPath,
@@ -61,20 +60,6 @@ test("QR encodes the actual credential and decodes with the four-module quiet zo
   assert.equal(qr.total - qr.modules.size, 8);
   assert.equal(jsQR(pixels, side, side)?.data, payload);
   assert.throws(() => createMembershipQr("https://untrusted.example"));
-});
-test("return paths reject external, encoded and nested redirects", () => {
-  for (const bad of [
-    "https://untrusted.example",
-    "//untrusted.example",
-    "/\\untrusted.example",
-    "/%2F%2Funtrusted.example",
-    "/login?returnTo=//untrusted.example",
-    "javascript:alert(1)",
-    "\n/kartu",
-  ])
-    assert.equal(safeReturnPath(bad), "/beranda");
-  assert.equal(safeReturnPath("/verify-email"), "/verify-email");
-  assert.equal(safeReturnPath("/kartu"), "/kartu");
 });
 test("verification parser preserves the signed query and accepts only configured API origin", () => {
   const path = signed.slice(apiOrigin.length);

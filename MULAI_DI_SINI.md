@@ -1,9 +1,14 @@
-# sorerunapp — Tahap 06
+# sorerunapp — navigasi dan tampilan auth
 
-Baca **docs/PANDUAN_TAHAP_06.md** terlebih dahulu dan ikuti urutannya.
+Ekstrak isi paket ke root C:\laragon\www\sorerunapp setelah menghentikan npm run dev. Jalankan dari root Git Bash:
 
-Paket ini adalah perubahan untuk repository sorerunapp branch dev, berdasarkan commit `0aeb7e04ac36c67cfe1acfa6fe68681d015622c8`. Gabungkan folder backend, frontend, postman, dan docs ke root project setelah menyimpan perubahan lokal Anda. Jangan membuat ulang project, mengganti .env, atau meregenerasi APP_KEY.
+```bash
+node scripts/apply-auth-navigation.cjs
+node scripts/centralize-auth-css.cjs
+```
 
-MANIFEST.json mencatat file source dalam paket dan checksum-nya. Empat dokumen final utama tidak diubah. Dependency dan build output tidak disertakan; jalankan npm ci sesuai panduan.
+Lanjutkan docs/PANDUAN_AUTH_NAVIGATION.md untuk membersihkan tipe route lama, menjalankan pemeriksaan, dan uji manual.
 
-Frontend dan test browser dengan fixture sudah diperiksa. PHPUnit/MySQL/SMTP nyata perlu dijalankan pada Laragon; lihat docs/VERIFICATION_STAGE_06.md. Paket ini tidak melakukan commit/push/deploy.
+Hasil: root / → /login; semua login berhasil → /beranda; logout/sesi habis → /login tanpa returnTo. Tiga halaman auth memakai susunan tautan sesuai preview yang disetujui. Banner sesi aktif tetap manual lanjut ke beranda. Verifikasi email wajib sebelum login tetap berlaku.
+
+Paket melanjutkan email-first yang sudah lulus pengujian Anda. Styling auth sekarang terpusat di globals.css. Script kedua menambahkan blok CSS tanpa menimpa isi globals.css existing, menghapus import dan file auth-layout.css lama, serta membuat backup. Tidak mengganti backend, palet, layanan API, session provider, database, atau dependency. next.config.ts dipatch terbatas oleh script, menjaga konfigurasi existing. Root page yang hanya berisi redirect lama dihapus setelah backup. Tidak ada commit/push/deploy otomatis.

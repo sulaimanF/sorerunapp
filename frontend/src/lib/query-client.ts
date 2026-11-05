@@ -16,7 +16,7 @@ export function createQueryClient(): QueryClient {
         if (
           query.meta?.requiresSession &&
           error instanceof ApiError &&
-          (error.status === 401 || error.code === "ACCOUNT_BLOCKED")
+          (error.status === 401 || error.code === "ACCOUNT_BLOCKED" || error.code === "EMAIL_NOT_VERIFIED")
         ) {
           void clearPrivateQueries(client);
         }
