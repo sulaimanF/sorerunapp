@@ -1,5 +1,5 @@
 import { QueryClient, QueryCache } from "@tanstack/react-query";
-import { ApiError } from "./errors";
+import { isSessionRejection } from "./errors";
 
 export const sessionKey = ["auth", "session"] as const;
 
@@ -15,8 +15,7 @@ export function createQueryClient(): QueryClient {
       onError(error, query) {
         if (
           query.meta?.requiresSession &&
-          error instanceof ApiError &&
-          (error.status === 401 || error.code === "ACCOUNT_BLOCKED" || error.code === "EMAIL_NOT_VERIFIED")
+          isSessionRejection(error)
         ) {
           void clearPrivateQueries(client);
         }

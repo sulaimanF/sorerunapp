@@ -20,13 +20,13 @@ async function fixture(context: BrowserContext) {
   const state: {
     loggedIn: boolean; ownerId: number; email: string; active: boolean; verified: boolean;
     profile: MemberProfile; patches: number; completed: number; reads: number; readFails: boolean;
-    validationFails: boolean; expireOnSave: boolean; commitThenDisconnect: boolean;
+    validationFails: boolean; expireOnSave: boolean; unverifyOnSave: boolean; commitThenDisconnect: boolean;
     holdPatch: Promise<void> | null;
   } = {
     loggedIn: true, ownerId: 42, email: "profile-stage07@example.test", active: true, verified: true,
     profile: { full_name: initialName, birth_date: "2012-02-29", phone: "+6281234567890", city: "Kota Uji", gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z" },
     patches: 0, completed: 0, reads: 0, readFails: false, validationFails: false, expireOnSave: false,
-    commitThenDisconnect: false, holdPatch: null,
+    unverifyOnSave: false, commitThenDisconnect: false, holdPatch: null,
   };
   const csrf = "profile-xsrf+";
   await context.addCookies([
@@ -74,6 +74,7 @@ async function fixture(context: BrowserContext) {
       if (state.holdPatch) await state.holdPatch;
       state.completed++;
       if (state.expireOnSave) { state.loggedIn = false; return fail(401, "SESSION_EXPIRED", "Sesi sudah berakhir."); }
+      if (state.unverifyOnSave) { state.loggedIn = false; return fail(403, "EMAIL_NOT_VERIFIED", "Verifikasi email Anda sebelum masuk."); }
       if (state.validationFails) return fail(422, "VALIDATION_FAILED", "Periksa kembali data yang Anda isi.", { city: ["Domisili perlu diperbaiki oleh anggota."] });
       const saved: MemberProfile = { ...before, ...body, phone: body.phone.startsWith("0") ? `+62${body.phone.slice(1)}` : body.phone, profile_complete: true, updated_at: new Date(Date.UTC(2026, 9, 24, 0, 0, state.patches)).toISOString() };
       if (owner === state.ownerId) {
@@ -174,6 +175,17 @@ test("profile read failure offers retry without inventing empty biodata", async 
   state.readFails = false;
   await page.getByRole("button", { name: "Coba Lagi", exact: true }).click();
   await expect(page.getByLabel("Nama lengkap")).toHaveValue(initialName);
+});
+
+test("email verification revoked during profile save clears private data and returns to login", async ({ page, context }) => {
+  const state = await fixture(context); state.unverifyOnSave = true;
+  await openProfile(page);
+  await page.getByLabel("Kota/domisili").fill("Tidak Tersimpan");
+  await save(page);
+  await expect(page).toHaveURL(`${FRONTEND}/login`);
+  await expect(page.getByRole("form", { name: "Form profil anggota" })).toHaveCount(0);
+  expect(state.profile.city).toBe("Kota Uji");
+  expect(state.patches).toBe(1);
 });
 
 test("late profile update cannot populate the next account after logout", async ({ page, context }) => {

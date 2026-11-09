@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, normalizeApiError } from "@/lib/errors";
+import { isSessionRejection, normalizeApiError, type ApiError } from "@/lib/errors";
 import { clearPrivateQueries, sessionKey } from "@/lib/query-client";
 import {
   currentMember,
@@ -19,11 +19,12 @@ import {
 import { verificationIntent } from "@/features/auth/verification-intent";
 import type { BrowserSession, LoginCredentials } from "@/features/auth/types";
 
-type Transition = "idle" | "login" | "logout" | "refresh" | "logout-unknown";
+type Transition = "idle" | "login" | "logout" | "refresh" | "logout-check" | "logout-unknown";
 type SessionContextValue = {
   session: BrowserSession | null | undefined;
   loading: boolean;
   error: ApiError | null;
+  recoveryError: ApiError | null;
   transition: Transition;
   refresh: () => Promise<BrowserSession | null>;
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -34,6 +35,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const [transition, setTransition] = useState<Transition>("idle");
+  const [recoveryError, setRecoveryError] = useState<ApiError | null>(null);
   const query = useQuery({
     queryKey: sessionKey,
     queryFn: ({ signal }) => currentMember(signal),
@@ -60,14 +62,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   async function refresh() {
     // Hide private data while checking a possibly changed server identity.
-    setTransition("refresh");
+    const recoveringLogout = transition === "logout-unknown";
+    setTransition(recoveringLogout ? "logout-check" : "refresh");
+    setRecoveryError(null);
     await clearPrivateQueries(client);
     try {
       const data = await currentMember();
       client.setQueryData(sessionKey, data);
-      return data;
-    } finally {
       setTransition("idle");
+      if (data === null) announce();
+      return data;
+    } catch (error) {
+      if (isSessionRejection(error)) {
+        setTransition("idle");
+        announce();
+        return null;
+      }
+      // A failed lookup cannot settle an uncertain logout or expose private UI.
+      setRecoveryError(normalizeApiError(error));
+      setTransition(recoveringLogout ? "logout-unknown" : "idle");
+      throw error;
     }
   }
   async function login(credentials: LoginCredentials) {
@@ -83,6 +97,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }
   async function logout() {
     setTransition("logout");
+    setRecoveryError(null);
     await clearPrivateQueries(client);
     verificationIntent.set(null);
     try {
@@ -90,7 +105,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setTransition("idle");
       announce();
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.code === "EMAIL_NOT_VERIFIED")) {
+      if (isSessionRejection(error)) {
         setTransition("idle");
         announce();
         return;
@@ -105,6 +120,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         session: query.data,
         loading: query.isPending,
         error: query.error ? normalizeApiError(query.error) : null,
+        recoveryError,
         transition,
         refresh,
         login,

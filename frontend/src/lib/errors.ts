@@ -24,6 +24,14 @@ export class ApiError extends Error {
   }
 }
 
+export function isSessionRejection(error: unknown): boolean {
+  return error instanceof ApiError && (
+    error.status === 401 ||
+    error.code === "ACCOUNT_BLOCKED" ||
+    error.code === "EMAIL_NOT_VERIFIED"
+  );
+}
+
 export function normalizeApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
   if (axios.isAxiosError(error)) {

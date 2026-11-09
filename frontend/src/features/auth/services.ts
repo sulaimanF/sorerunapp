@@ -38,7 +38,13 @@ export async function loginMember(credentials: LoginCredentials) {
 }
 export async function logoutMember() {
   await initializeCsrf();
-  await api.post("/api/v1/auth/logout", {});
+  const response = await api.post("/api/v1/auth/logout", {});
+  if (response.status !== 204)
+    throw new ApiError(
+      "Status keluar belum terkonfirmasi. Periksa sesi Anda.",
+      502,
+      "INVALID_RESPONSE",
+    );
 }
 export async function registerMember(values: RegistrationValues) {
   const birthDate = birthDateToIso(values.birth_date);

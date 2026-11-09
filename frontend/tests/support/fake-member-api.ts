@@ -13,6 +13,8 @@ type FakeState = {
   active: boolean;
   cardDenied: boolean;
   logoutFails: boolean;
+  logoutStatus: number;
+  sessionFails: boolean;
   resendRateLimited: boolean;
   loginCount: number;
   verifyCount: number;
@@ -29,6 +31,8 @@ export async function fixtureApi(
     active: true,
     cardDenied: false,
     logoutFails: false,
+    logoutStatus: 204,
+    sessionFails: false,
     resendRateLimited: false,
     loginCount: 0,
     verifyCount: 0,
@@ -144,6 +148,7 @@ export async function fixtureApi(
       state.active = true;
       return respond(200, { data: { result }, meta });
     }
+    if (path === "/api/v1/auth/me" && state.sessionFails) return route.abort("failed");
     if (!state.loggedIn) return error(401, "UNAUTHENTICATED", "Silakan masuk untuk melanjutkan.");
     if (!state.active) {
       state.loggedIn = false;
@@ -173,6 +178,7 @@ export async function fixtureApi(
     }
     if (path === "/api/v1/auth/logout") {
       if (state.logoutFails) return route.abort("failed");
+      if (state.logoutStatus !== 204) return respond(state.logoutStatus, { data: {}, meta });
       state.loggedIn = false;
       state.csrf = "csrf-after-logout+";
       await cookies();
