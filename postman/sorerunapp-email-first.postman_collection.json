@@ -1,0 +1,544 @@
+{
+  "info": {
+    "name": "sorerunapp - Email verification before login",
+    "_postman_id": "a4016bee-1f4f-4584-91b5-8a38fc44fedc",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Jalankan berurutan. Hapus cookie localhost sebelum01; jeda membaca Mailpit sebelum05. Isi email_link dengan link email. Jangan export signed URL/cookie/current values."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const api = pm.environment.get('api_origin');",
+          "if (api !== 'http://localhost:8000') throw new Error('Collection ini hanya untuk API lokal localhost:8000.');",
+          "pm.request.headers.upsert({key:'Origin',value:'http://localhost:3000'});",
+          "pm.request.headers.upsert({key:'Referer',value:'http://localhost:3000/'});",
+          "if (pm.info.requestName.startsWith('01 ')) {",
+          "  pm.environment.set('email', 'email-first-'+Date.now()+'-'+Math.floor(Math.random()*100000)+'@example.test');",
+          "  pm.environment.unset('verification_url'); pm.environment.unset('email_link');",
+          "}",
+          "if (pm.request.method === 'POST') {",
+          "  pm.cookies.jar().get(api+'/', 'XSRF-TOKEN', (error, cookie) => {",
+          "    if (error || !cookie) throw new Error('Jalankan GET CSRF terlebih dahulu dan aktifkan cookie jar.');",
+          "    pm.request.headers.upsert({key:'X-XSRF-TOKEN',value:decodeURIComponent(cookie)});",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 CSRF dan email fixture baru",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/sanctum/csrf-cookie"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Register tanpa login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Anggota Email First Uji\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\",\n  \"birth_date\": \"2000-01-01\",\n  \"phone\": \"081234567890\",\n  \"city\": \"Kota Uji\",\n  \"privacy_notice_accepted\": true,\n  \"privacy_notice_version\": \"dev-v1\",\n  \"terms_accepted\": true,\n  \"terms_version\": \"dev-v1\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Hasil sesuai kontrak\", () => pm.expect(pm.response.json().data.result).to.equal(\"registration_received\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Login sebelum verifikasi ditolak",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Belum verified\", () => pm.expect(pm.response.json().error.code).to.equal(\"EMAIL_NOT_VERIFIED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Me masih tamu",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Siapkan tautan dan GET readiness",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{verification_url}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let raw = pm.environment.get('email_link') || '';",
+              "if (raw.includes('#verification=')) raw = decodeURIComponent(raw.split('#verification=')[1]);",
+              "const proofApi = pm.environment.get('api_origin');",
+              "if (!raw.startsWith(proofApi+'/api/v1/auth/email-verification/') || !/^http:\\/\\/localhost:8000\\/api\\/v1\\/auth\\/email-verification\\/[1-9][0-9]*\\/[a-f0-9]{40}\\?[^#]+$/.test(raw)) {",
+              "  throw new Error('Isi email_link dengan tautan dari inbox uji yang masih berlaku.');",
+              "}",
+              "pm.environment.set('verification_url', raw);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Hasil sesuai kontrak\", () => pm.expect(pm.response.json().data.result).to.equal(\"verification_link_ready\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 GET belum memverifikasi - login ditolak",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Masih belum verified\", () => pm.expect(pm.response.json().error.code).to.equal(\"EMAIL_NOT_VERIFIED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 POST konfirmasi tanpa login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{verification_url}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Hasil sesuai kontrak\", () => pm.expect(pm.response.json().data.result).to.equal(\"email_verified\"));",
+              "pm.test(\"Tidak membocorkan data anggota\", () => pm.expect(Object.keys(pm.response.json().data).join(\",\")).to.equal(\"result\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Me sesudah verifikasi tetap tamu",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Login sesudah verifikasi",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Email verified\", () => pm.expect(pm.response.json().data.user.email_verified).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Kartu privat",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/me/membership/card"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"QR tersedia privat\", () => pm.expect(pm.response.json().data.qr_payload.startsWith(\"src-member:v1:\")).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Konfirmasi ulang idempotent",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{verification_url}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Hasil sesuai kontrak\", () => pm.expect(pm.response.json().data.result).to.equal(\"already_verified\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/logout",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 CSRF tamu baru",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/sanctum/csrf-cookie"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Resend email tidak dikenal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/email-verification/resend",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"unknown-email-first@example.test\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 202\", () => pm.response.to.have.status(202));",
+              "pm.test(\"Hasil sesuai kontrak\", () => pm.expect(pm.response.json().data.result).to.equal(\"verification_requested\"));",
+              "pm.test(\"Cooldown generik\", () => pm.expect(pm.response.headers.get(\"Retry-After\")).to.equal(\"60\"));",
+              "pm.environment.set(\"generic_resend_data\", JSON.stringify(pm.response.json().data));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Resend akun sudah verified tetap generik",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{api_origin}}/api/v1/auth/email-verification/resend",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 202\", () => pm.response.to.have.status(202));",
+              "pm.test(\"Hasil sesuai kontrak\", () => pm.expect(pm.response.json().data.result).to.equal(\"verification_requested\"));",
+              "pm.test(\"Respons sama\", () => pm.expect(JSON.stringify(pm.response.json().data)).to.equal(pm.environment.get(\"generic_resend_data\")));",
+              "pm.test(\"Cooldown sama\", () => pm.expect(pm.response.headers.get(\"Retry-After\")).to.equal(\"60\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

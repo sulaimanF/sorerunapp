@@ -29,3 +29,9 @@
 # File sistem operasi
 .DS_Store
 Thumbs.db
+
+# Source backup for the email-first revision
+.email-first-backup/
+
+# Source backup for approved auth navigation
+.auth-navigation-backup/

@@ -40,6 +40,11 @@ class EnsureCurrentBrowserSession
             throw new ApiProblem('SESSION_EXPIRED', 'Sesi sudah berakhir. Silakan masuk kembali.', 401);
         }
 
+        if ($user->email_verified_at === null) {
+            BrowserSession::end($request);
+            throw new ApiProblem('EMAIL_NOT_VERIFIED', 'Verifikasi email Anda sebelum masuk.', 403);
+        }
+
         Auth::guard('web')->setUser($user);
         Auth::guard('sanctum')->setUser($user);
 

@@ -12,10 +12,11 @@ class EmailVerificationResultResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return ['result' => $this->resource['result'], 'membership' => [
-            'status' => $this->resource['membership']['status'],
-            'member_number' => $this->resource['membership']['member_number'],
-        ]];
+        return ['result' => match ($this->resource['result']) {
+            'membership_activated' => 'email_verified',
+            'already_active' => 'already_verified',
+            'email_verified_profile_incomplete' => 'email_verified_profile_incomplete',
+        }];
     }
 
     public function with(Request $request): array

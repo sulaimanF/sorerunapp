@@ -44,7 +44,7 @@ final class ProfileConcurrencyTest extends TestCase
 
     public function test_profile_completion_and_email_verification_race_activate_once(): void
     {
-        $this->assertOneActivation(['profile', 'activation'], false);
+        $this->assertOneActivation(['profile', 'activation'], true);
     }
 
     public function test_two_verified_profile_completions_race_activate_once(): void

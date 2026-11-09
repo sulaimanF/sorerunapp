@@ -41,6 +41,10 @@ class AuthenticateMember
                 throw $this->invalidCredentials();
             }
 
+            if ($current->email_verified_at === null) {
+                throw new ApiProblem('EMAIL_NOT_VERIFIED', 'Verifikasi email Anda sebelum masuk. Periksa kotak masuk atau kirim ulang email verifikasi.', 403);
+            }
+
             // Keep the configured hashing cost current after valid authentication.
             if (Hash::needsRehash($current->password)) {
                 $current->password = Hash::make($data->password);

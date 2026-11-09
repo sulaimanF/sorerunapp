@@ -33,6 +33,10 @@ class UpdateMemberProfile
             if ($user->auth_version !== $sessionVersion) {
                 throw new ApiProblem('SESSION_EXPIRED', 'Sesi sudah berakhir. Silakan masuk kembali.', 401);
             }
+            if ($user->email_verified_at === null) {
+                throw new ApiProblem('EMAIL_NOT_VERIFIED', 'Verifikasi email Anda sebelum masuk.', 403);
+            }
+
             $profile = $user->memberProfile()->lockForUpdate()->first();
             if ($profile === null) {
                 throw new ApiProblem('PROFILE_NOT_FOUND', 'Profil belum tersedia. Hubungi pengurus komunitas.', 404);

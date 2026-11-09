@@ -22,10 +22,16 @@ class AppServiceProvider extends ServiceProvider
         config(['mail.mailers.smtp.timeout' => 15]);
         Gate::policy(MemberProfile::class, MemberProfilePolicy::class);
 
+        // email-first: uniform public limits, no account lookup in the limiter.
         RateLimiter::for('verification-resend', function (Request $request): array {
+            $ip = hash('sha256', (string) $request->ip());
+            $email = $request->input('email');
+            $key = is_string($email) ? hash('sha256', mb_strtolower(trim($email), 'UTF-8')) : 'invalid-'.$ip;
+
             return [
-                Limit::perHour(5)->by('verification:user:'.hash('sha256', (string) $request->user()?->id)),
-                Limit::perHour(10)->by('verification:ip:'.hash('sha256', (string) $request->ip())),
+                Limit::perMinute(5)->by('verification:minute:'.$ip),
+                Limit::perHour(20)->by('verification:ip:'.$ip),
+                Limit::perHour(5)->by('verification:email:'.$key),
             ];
         });
 

@@ -1,3 +1,5 @@
+> **Kontrak autentikasi terbaru:** lihat ../../docs/API_EMAIL_FIRST.md. Ketentuan berbeda pada catatan tahap sebelumnya di bawah telah digantikan.
+
 # API contract — sorerunapp
 
 ## Registrasi member — tahap 03
@@ -143,7 +145,7 @@ Login sukses **200**, dengan shape yang sama seperti GET /auth/me:
       "id": 42,
       "full_name": "Anggota Uji",
       "email": "uji-registrasi-03@example.test",
-      "email_verified": false
+      "email_verified": true
     },
     "roles": ["member"],
     "profile_complete": true,
@@ -159,7 +161,7 @@ Login sukses **200**, dengan shape yang sama seperti GET /auth/me:
 
 Data hanya tentang akun sendiri. Resource tidak mengembalikan password/hash, remember token, auth_version, ID sesi, QR token, foto path, tanggal lahir, atau telepon. Roles dibaca dari database dan diurutkan. full_name memakai profil, atau nama akun bila profil belum ada. membership dapat null; profile_complete dihitung dari model. joined_at memakai ISO 8601 UTC jika ada. Respons memakai Cache-Control:no-store dan X-Request-ID.
 
-Member unverified boleh login. Membership pending/active/suspended/ended tidak menggantikan status akun enabled/blocked. Login tidak mengubah status membership, verifikasi email, nomor, QR, atau outbox. Akun enabled tanpa membership juga boleh membaca identitas sendiri; endpoint bisnis berikutnya tetap memeriksa eligibility masing-masing.
+Member unverified tidak dapat login: password benar menghasilkan 403 EMAIL_NOT_VERIFIED tanpa sesi authenticated. Membership pending/active/suspended/ended tidak menggantikan status akun enabled/blocked. Login tidak mengubah status membership, verifikasi email, nomor, QR, atau outbox. Akun enabled tanpa membership juga boleh membaca identitas sendiri; endpoint bisnis berikutnya tetap memeriksa eligibility masing-masing.
 
 Login berhasil pada sesi yang sudah terautentikasi mengganti akun dan menghapus isi sesi sebelumnya. Login gagal tidak mengganti identitas sesi existing. Frontend harus membersihkan cache privat sebelum menampilkan akun baru; implementasi frontend belum termasuk paket ini.
 
@@ -213,8 +215,8 @@ Kontrak tahap 03–04 di atas tetap berlaku. Semua response API memakai request_
 
 | Method dan path di bawah /api/v1 | Akses | Hasil |
 | --- | --- | --- |
-| POST /auth/email-verification/resend | Cookie pemilik, CSRF, sesi current | 202 verification_requested; 429 cooldown/rate limit |
-| GET /auth/email-verification/{id}/{hash}?expires=…&v=…&signature=… | Cookie pemilik, sesi current, signed URL 60 menit | 200 hasil verifikasi/aktivasi |
+| POST /auth/email-verification/resend | Publik stateful + CSRF, JSON email | 202 generik + Retry-After 60; 429 request limit |
+| GET /auth/email-verification/{id}/{hash}?expires=…&v=…&signature=… | Publik signed URL 60 menit | 200 verification_link_ready; tanpa mutasi |
 | GET /me/membership/card | Cookie pemilik, sesi current, akun enabled, email verified, profil complete, membership active | 200 kartu privat dan payload QR |
 
 POST resend menerima body kosong `{}` dan tidak menerima email/user_id/role/status dari client. Cooldown minimum 60 detik sejak delivery verifikasi terakhir; limiter 5 permintaan/jam/akun dan 10/jam/IP menghitung permintaan termasuk yang ditolak oleh action. Akun verified mendapatkan 202 tanpa record verifikasi baru. Suspended/ended tidak diaktifkan melalui resend/verifikasi.
@@ -281,12 +283,17 @@ Jangan catat query signed URL atau response kartu di access log/analytics. Saat 
 
 ## Tahap 06 — navigasi verifikasi frontend
 
-Email verifikasi baru membuka FRONTEND_URL/verify-email dengan signed API URL di fragment #verification=. Laravel tetap membuat signed URL API melalui forUser(); forBrowser() hanya membungkusnya untuk navigasi browser. Fragment tidak dikirim ke server Next.js. Frontend memvalidasi origin/path/query, menghapus fragment dari address bar, menyimpan intent hanya di memori tab, meminta login pemilik bila perlu, lalu GET ke signed API URL setelah konfirmasi pengguna. Tidak ada signature di router query, localStorage, sessionStorage, atau Query key. Reload sesudah fragment dihapus mengharuskan pengguna membuka kembali email.
+Email verifikasi baru membuka FRONTEND_URL/verify-email dengan signed API URL di fragment #verification=. Laravel tetap membuat signed URL API melalui forUser(); forBrowser() hanya membungkusnya untuk navigasi browser. Fragment tidak dikirim ke server Next.js. Frontend memvalidasi origin/path/query, menghapus fragment dari address bar, menyimpan intent hanya di memori tab, melakukan POST ke signed API URL dengan CSRF setelah konfirmasi pengguna, tanpa login. Tidak ada signature di router query, localStorage, sessionStorage, atau Query key. Reload sesudah fragment dihapus mengharuskan pengguna membuka kembali email.
 
-forUser(), TTL 60 menit, authenticated owner, hash email/version, dan transaksi aktivasi tetap berlaku. Email lama dengan URL API langsung tetap valid selama belum kedaluwarsa. Setelah upgrade, restart queue worker dan gunakan email baru untuk mencoba alur browser. Postman tahap 05 diperbarui untuk mengekstrak URL API dari format email lama maupun fragment baru.
+forUser(), TTL 60 menit, hash email/version, dan transaksi aktivasi tetap berlaku; proof awal publik menggantikan authenticated owner. Email lama dengan URL API langsung tetap valid selama belum kedaluwarsa. Setelah upgrade, restart queue worker dan gunakan email baru untuk mencoba alur browser. Postman tahap 05 diperbarui untuk mengekstrak URL API dari format email lama maupun fragment baru.
 
 CORS mengekspos Retry-After dan X-Request-ID agar browser dapat menampilkan cooldown/support ID yang sudah diberikan API. Origin/credentials tetap dibatasi seperti sebelumnya. Tidak ada endpoint atau migration baru. Kartu tetap hanya tersedia melalui API privat; frontend merender credential asli menjadi SVG QR hitam-putih dengan quiet zone empat modul, tanpa mengirim data kartu melalui SSR.
 
 ## Tahap 07 — Biodata profil sendiri
 
 Tambahan `GET /api/v1/me/profile` dan `PATCH /api/v1/me/profile` menggunakan sesi browser, ownership, CSRF untuk PATCH, response no-store, serta audit field yang berubah. Kontrak lengkap: [PROFILE_API_STAGE_07.md](PROFILE_API_STAGE_07.md). Endpoint akun dan alur login tahap 06 dipertahankan.
+
+
+## Revisi email-first — 24 Oktober 2026
+
+Login wajib enabled + verified. GET signed URL read-only. POST signed URL + CSRF + JSON {} memverifikasi tanpa login/auto-login. Response publik hanya result dan meta; tanpa identitas, nomor, atau QR. Resend publik menerima email dengan respons generik dan cooldown. Rincian dan pengujian: ../../docs/API_EMAIL_FIRST.md dan ../../docs/PANDUAN_EMAIL_FIRST.md.

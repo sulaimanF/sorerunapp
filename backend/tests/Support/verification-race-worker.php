@@ -43,7 +43,7 @@ try {
     }
     if ($input['mode'] === 'activation') {
         $user = User::query()->findOrFail((int) $input['id']);
-        $result = app(VerifyEmailAndActivateMembership::class)->handle((int) $user->id, (string) $user->id, sha1($user->email), (string) $user->auth_version, (string) Str::uuid(), $user->auth_version);
+        $result = app(VerifyEmailAndActivateMembership::class)->handle((int) $user->id, (string) $user->id, sha1($user->email), (string) $user->auth_version, (string) Str::uuid(), $user->auth_version, publicProof: true);
         echo json_encode(['result' => $result['result']], JSON_THROW_ON_ERROR);
     } else {
         app(DeliverNotification::class)->handle((int) $input['id']);

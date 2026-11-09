@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Validator;
 
 class ResendVerificationRequest extends FormRequest
 {
@@ -14,17 +13,16 @@ class ResendVerificationRequest extends FormRequest
         return true;
     }
 
-    public function rules(): array
+    protected function prepareForValidation(): void
     {
-        return [];
+        $email = $this->input('email');
+        if (is_string($email)) {
+            $this->merge(['email' => mb_strtolower(trim($email), 'UTF-8')]);
+        }
     }
 
-    public function after(): array
+    public function rules(): array
     {
-        return [function (Validator $validator): void {
-            if ($this->all() !== []) {
-                $validator->errors()->add('_request', 'Permintaan ini tidak menerima data anggota dari client.');
-            }
-        }];
+        return ['email' => ['required', 'string', 'email:rfc', 'max:254']];
     }
 }

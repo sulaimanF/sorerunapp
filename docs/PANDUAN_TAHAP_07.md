@@ -1,3 +1,5 @@
+> **ALUR EMAIL-FIRST (24 Oktober 2026):** aturan login/verifikasi lama pada dokumen tahap ini telah digantikan oleh `docs/PANDUAN_EMAIL_FIRST.md` dan `docs/API_EMAIL_FIRST.md`. Verifikasi email wajib sebelum login; pengujian profil memakai akun terverifikasi.
+
 # Panduan Tahap 07 — Biodata Anggota
 
 Ikuti langkah berurutan. Tahap ini menambahkan editor biodata dan API profil sendiri. **Alur login awal yang Anda pilih dipertahankan.** Tidak ada migration, dependency produksi baru, atau perubahan palet.

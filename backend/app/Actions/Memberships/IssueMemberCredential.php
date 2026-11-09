@@ -11,7 +11,7 @@ use Carbon\CarbonImmutable;
 class IssueMemberCredential
 {
     // Caller holds the membership row lock and owns the surrounding transaction.
-    public function handle(Membership $membership, int $actorId, CarbonImmutable $now): void
+    public function handle(Membership $membership, ?int $actorId, CarbonImmutable $now): void
     {
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $credential = new MemberCredential;

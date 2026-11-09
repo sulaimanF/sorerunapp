@@ -2,7 +2,7 @@
 
 Panduan kerja AI untuk pengembangan aplikasi membership Sore Running Club (SRC). Letakkan file ini di root repository sorerunapp, sejajar dengan PRD.md, ARCHITECTURE.md, SYSTEM_DESIGN.md, frontend/, dan backend/.
 
-Versi panduan: 1.0 — 14 Oktober 2026. Panduan ini disusun dari tiga dokumen final yang telah disetujui pemilik produk. Aturan di dalamnya mengatur cara implementasi; tidak memberikan kewenangan mengubah keputusan produk secara sepihak.
+Versi panduan: 1.2 — 25 Oktober 2026. Panduan ini disusun dari tiga dokumen final yang telah disetujui pemilik produk. Aturan di dalamnya mengatur cara implementasi; tidak memberikan kewenangan mengubah keputusan produk secara sepihak.
 
 Status: **Final — disetujui pemilik produk sebagai panduan kerja AI untuk pengembangan sorerunapp.**
 
@@ -58,6 +58,8 @@ Gunakan npm di frontend sebagai baseline kecuali repo telah menetapkan satu pack
 ### 3.2 Aturan bisnis inti
 
 - Satu komunitas; membership gratis tanpa kedaluwarsa otomatis. Registrasi sekali; email terverifikasi dan profil wajib lengkap sebelum aktivasi otomatis, tanpa approval admin.
+- Login hanya setelah email terverifikasi dan akun enabled. Pendaftar unverified hanya memakai flow publik verifikasi/resend; tidak membuat sesi login. GET tautan read-only, POST konfirmasi memakai signed URL + CSRF, tanpa auto-login. Sesi lama unverified ditolak/dicabut dan cache privat dibersihkan. Resend publik menerima email dengan respons generik, cooldown, dan limit email/IP.
+- Navigasi auth memakai tujuan tetap: / → /login, login berhasil → /beranda, logout/sesi berakhir/tamu pada route privat → /login. Jangan menambahkan kembali returnTo atau tujuan login dari query/storage. Pertahankan perpindahan menu tanpa login ulang selama sesi valid serta banner sesi aktif/manual lanjut. Susunan tautan tiga halaman auth mengikuti revisi SYSTEM_DESIGN 1.3.
 - Nama, tanggal lahir, telepon, dan domisili wajib; foto opsional. Anggota di bawah umur diperbolehkan. Jangan menambah NIK/KTP, data kesehatan, atau batas usia minimum otomatis.
 - Akun, profil, membership, credential QR, event, dan attendance adalah domain terpisah. Satu akun maksimum satu membership pada komunitas ini.
 - Nomor member unik, stabil, tidak dipakai ulang. Reaktivasi ended oleh admin memakai membership dan nomor yang sama selama belum dianonimkan.
@@ -106,9 +108,9 @@ Gunakan npm di frontend sebagai baseline kecuali repo telah menetapkan satu pack
 ### 5.2 Desain yang wajib diikuti
 
 - Baca SYSTEM_DESIGN.md untuk nilai lengkap; jangan membuat tema baru karena template starter bawaan berbeda.
-- Primary #C2410C, hover #9A3412, forest #163E2B, canvas #F8FAF7, surface #FFFFFF, ink #17211B. Gunakan semantic token di globals.css, bukan hardcode warna per halaman.
+- Palet Sunset yang disetujui: primary #EA6113, hover #F88F22, gold #FBB931, cream #FFE3B3, canvas #FFF9F0, surface #FFFFFF, ink #2B2118, link/focus #B9470B. Teks tombol primary memakai Deep Brown sesuai SYSTEM_DESIGN.md. Gunakan semantic token di globals.css, bukan hardcode warna per halaman.
 - Font Plus Jakarta Sans melalui next/font; body/input 16 px; tinggi kontrol/hit area utama minimum 44 px, CTA scanner minimum 52 px.
-- Kartu anggota memakai bidang forest dan panel QR hitam-putih; quiet zone minimal empat modul. Tidak membuat QR dekoratif, cropping, atau logo yang menutupi modul.
+- Kartu anggota memakai bidang Deep Brown dan panel QR hitam-putih; quiet zone minimal empat modul. Tidak membuat QR dekoratif, cropping, atau logo yang menutupi modul.
 - Fokus, error, loading, empty, disabled, dan status wajib dirancang. Status tidak dibedakan melalui warna saja.
 - Preview QR bukan sukses hadir; sukses hanya sesudah commit. Nama event/tanggal/lokasi selalu jelas di scanner.
 - Uji mobile 320 px, reflow/zoom, keyboard dan safe area pada perubahan layout relevan. Jangan mengaktifkan dark mode parsial tanpa desain lengkap.
@@ -119,9 +121,9 @@ Gunakan npm di frontend sebagai baseline kecuali repo telah menetapkan satu pack
 - Controller tipis; FormRequest untuk validasi, Policy untuk izin objek, Action untuk transaksi/aturan bisnis, API Resource untuk response whitelist.
 - Gunakan app/Actions/<Domain>, Models, Policies, Enums, Jobs, Notifications, Services sesuai arsitektur. Jangan menambah repository abstraction atau microservice tanpa kebutuhan nyata.
 - Model binding harus scoped: attendance harus cocok dengan event pada URL. ID yang valid tidak otomatis berarti user berhak mengaksesnya.
-- Jangan menerima role, status, actor_id, atau waktu server dari client melalui mass assignment bebas. Actor berasal dari session dan transisi melalui action eksplisit.
+- Jangan menerima role, status, actor_id, atau waktu server dari client melalui mass assignment bebas. Actor aksi authenticated berasal dari session dan transisi melalui action eksplisit. Pengecualian verifikasi awal publik: subject berasal dari signed URL tervalidasi, tidak mengklaim actor login; audit actor/issued_by NULL.
 - Base API /api/v1; /sanctum/csrf-cookie mengikuti Sanctum. Ikuti error envelope dan status HTTP pada ARCHITECTURE.md; dokumentasikan payload dalam docs/API_CONTRACT.md ketika endpoint dibuat/diubah.
-- Sanctum stateful auth, akun enabled, email verified jika diperlukan, dan policy diperiksa pada backend. Perubahan role/penugasan/status setelah preview diperiksa lagi saat confirm.
+- Sanctum stateful auth, akun enabled, email verified wajib untuk semua akses privat, dan policy diperiksa pada backend. Perubahan role/penugasan/status setelah preview diperiksa lagi saat confirm.
 - Sesi browser memakai cookie aman dan CSRF. Jangan mematikan proteksi atau memakai CORS wildcard bersama credentials untuk mempercepat integrasi.
 - QR: crypto-random 32 byte, payload src-member:v1:<token>, SHA-256 lookup, token asli terenkripsi bila ditampilkan ulang. Jangan menggantinya dengan member ID berurutan atau session token.
 - Rotasi QR, aktivasi, status, kuota, attendance, dan audit terkait memakai transaksi. Jangan memanggil layanan email/storage/network di dalam row lock.
@@ -249,3 +251,7 @@ Pekerjaan dinyatakan selesai ketika:
 Laporan akhir ringkas mencantumkan hasil konkret, file/modul utama yang berubah, pemeriksaan yang dijalankan beserta hasil, dan keterbatasan penting. Pisahkan pekerjaan selesai dari yang belum diuji. Gunakan Bahasa Indonesia dan jangan membanjiri pengguna dengan log mentah.
 
 Jika pekerjaan berlanjut pada sesi lain, gunakan status nyata repo/dokumen dan catatan tugas yang ada. Jangan mengarang progress, menggandakan implementasi, atau mengubah dokumen final menjadi draft kembali.
+
+Revisi 1.1 tetap final: menyelaraskan alur email-before-login dan acuan Sunset yang telah disetujui; tidak memberi otorisasi mengubah fitur lain.
+
+Revisi 1.2 tetap final: navigasi auth tanpa returnTo dan susunan tautan auth yang telah disetujui pemilik produk. Backend/session policy serta palet Sunset tetap.

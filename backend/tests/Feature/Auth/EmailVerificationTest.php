@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
-use App\Actions\Auth\ResendVerificationEmail;
 use App\Actions\Memberships\GetMembershipCard;
 use App\Actions\Memberships\IssueMemberCredential;
 use App\Actions\Memberships\VerifyEmailAndActivateMembership;
 use App\Actions\Notifications\RecordNotificationDelivery;
 use App\Enums\MembershipStatus;
 use App\Exceptions\ApiProblem;
-use App\Models\MemberCredential;
 use App\Models\MemberNumberSequence;
 use App\Models\User;
 use App\Services\Auth\EmailVerificationUrl;
 use Database\Seeders\CoreRolesSeeder;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -37,6 +36,7 @@ final class EmailVerificationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->app->bind(PreventRequestForgery::class, EnforceCsrfInRegistrationTests::class);
         $this->requireIsolatedMysql();
         DB::beginTransaction();
         $this->seed(CoreRolesSeeder::class);
@@ -74,54 +74,51 @@ final class EmailVerificationTest extends TestCase
         return app(VerifyEmailAndActivateMembership::class)->handle((int) $user->id, (string) $user->id, sha1($user->email), (string) $user->auth_version, (string) Str::uuid(), $user->auth_version);
     }
 
-    public function test_owner_verifies_from_email_navigation_and_gets_one_stable_private_card(): void
+    public function test_guest_verifies_explicitly_then_logs_in_and_gets_one_stable_private_card(): void
     {
         $user = $this->member();
         $next = MemberNumberSequence::query()->findOrFail('membership')->next_value;
         $link = $this->link($user);
+        $this->requestJson('GET', $link)->assertOk()->assertJsonPath('data.result', 'verification_link_ready');
+        self::assertNull($user->fresh()->email_verified_at);
+        self::assertSame(0, $user->membership->credentials()->count());
         $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(403);
-        $verified = $this->requestJson('GET', $link, [], false, ['Origin' => '', 'Referer' => 'https://mail.example/']);
-        $verified->assertOk()->assertJsonPath('data.result', 'membership_activated')->assertJsonPath('data.membership.status', 'active');
+        $this->login($user)->assertStatus(403)->assertJsonPath('error.code', 'EMAIL_NOT_VERIFIED');
+        $this->requestJson('POST', $link, [], false)->assertStatus(419);
+        $verified = $this->requestJson('POST', $link)->assertOk()->assertJsonPath('data.result', 'email_verified');
+        self::assertSame(['result'], array_keys($verified->json('data')));
+        $this->requestJson('GET', '/api/v1/auth/me')->assertStatus(401);
         self::assertNotNull($user->fresh()->email_verified_at);
         $number = 'TEST-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT);
-        $verified->assertJsonPath('data.membership.member_number', $number);
-        self::assertSame($next + 1, MemberNumberSequence::query()->findOrFail('membership')->next_value);
-        $credential = MemberCredential::query()->where('membership_id', $user->membership->id)->sole();
-        $token = $credential->token_encrypted;
-        self::assertMatchesRegularExpression('/\A[A-Za-z0-9_-]{43}\z/D', $token);
-        self::assertSame(32, strlen(base64_decode(strtr($token, '-_', '+/'), true)));
-        self::assertSame(hash('sha256', $token, true), $credential->token_hash);
-        self::assertNotSame($token, $credential->getRawOriginal('token_encrypted'));
-        self::assertSame(1, $user->notificationDeliveries()->where('type', 'membership_activated')->count());
-        self::assertSame(1, DB::table('audit_logs')->where('target_id', $user->membership->id)->where('action', 'membership.activated')->count());
+        self::assertSame($number, $user->membership->fresh()->member_number);
+        $credential = $user->membership->credentials()->sole();
+        self::assertNull($credential->issued_by);
+        self::assertSame(hash('sha256', $credential->token_encrypted, true), $credential->token_hash);
+        self::assertNotSame($credential->token_encrypted, $credential->getRawOriginal('token_encrypted'));
+        self::assertFalse(DB::table('audit_logs')->where('target_id', $user->membership->id)->whereNotNull('actor_user_id')->exists());
+        $this->login($user->fresh())->assertOk();
         $card = $this->requestJson('GET', '/api/v1/me/membership/card')->assertOk()->assertJsonPath('data.member_number', $number);
-        self::assertSame('src-member:v1:'.$token, $card->json('data.qr_payload'));
-        self::assertSame(['community_name', 'full_name', 'member_number', 'qr_payload', 'issued_at'], array_keys($card->json('data')));
-        self::assertStringContainsString('no-store', $card->headers->get('Cache-Control'));
-        self::assertSame($card->json('meta.request_id'), $card->headers->get('X-Request-ID'));
-        $this->requestJson('GET', $link)->assertOk()->assertJsonPath('data.result', 'already_active');
+        self::assertSame('src-member:v1:'.$credential->token_encrypted, $card->json('data.qr_payload'));
+        $this->requestJson('POST', $link)->assertOk()->assertJsonPath('data.result', 'already_verified');
         $again = $this->requestJson('GET', '/api/v1/me/membership/card')->assertOk();
         self::assertSame($card->json('data'), $again->json('data'));
         self::assertSame(1, $user->membership->credentials()->count());
         self::assertSame($next + 1, MemberNumberSequence::query()->findOrFail('membership')->next_value);
-        self::assertStringNotContainsString($token, $verified->getContent());
-        Notification::assertNothingSent();
+        self::assertSame(1, $user->notificationDeliveries()->where('type', 'membership_activated')->count());
+        self::assertStringNotContainsString($credential->token_encrypted, $verified->getContent());
     }
 
-    public function test_guest_and_other_owner_cannot_verify_or_obtain_another_card(): void
+    public function test_signed_proof_verifies_its_subject_without_switching_an_existing_account(): void
     {
         $owner = $this->member();
-        $link = $this->link($owner);
-        $this->requestJson('GET', $link)->assertStatus(401);
-        $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(401);
         $other = $this->member();
+        $this->activate($other);
         $this->csrf();
-        $this->login($other)->assertOk();
-        $this->requestJson('GET', $link)->assertStatus(403)->assertJsonPath('error.code', 'VERIFICATION_OWNER_MISMATCH');
-        self::assertNull($owner->fresh()->email_verified_at);
-        $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(403);
+        $this->login($other->fresh())->assertOk();
+        $this->requestJson('POST', $this->link($owner))->assertOk()->assertJsonPath('data.result', 'email_verified');
+        $this->requestJson('GET', '/api/v1/auth/me')->assertOk()->assertJsonPath('data.user.id', $other->id);
+        $this->requestJson('GET', '/api/v1/me/membership/card')->assertOk()->assertJsonPath('data.member_number', $other->membership->fresh()->member_number);
+        self::assertNotSame($owner->membership->fresh()->member_number, $other->membership->fresh()->member_number);
     }
 
     public function test_expired_tampered_and_stale_links_do_not_activate(): void
@@ -129,13 +126,11 @@ final class EmailVerificationTest extends TestCase
         $user = $this->member();
         $link = $this->link($user);
         $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', $link.'&unexpected=1')->assertStatus(403)->assertJsonPath('error.code', 'INVALID_VERIFICATION_LINK');
+        $this->requestJson('POST', $link.'&unexpected=1')->assertStatus(403)->assertJsonPath('error.code', 'INVALID_VERIFICATION_LINK');
         $expired = URL::temporarySignedRoute('api.v1.auth.email-verification.verify', now()->subMinute(), ['id' => $user->id, 'hash' => sha1($user->email), 'v' => $user->auth_version]);
-        $this->requestJson('GET', parse_url($expired, PHP_URL_PATH).'?'.parse_url($expired, PHP_URL_QUERY))->assertStatus(403);
+        $this->requestJson('POST', parse_url($expired, PHP_URL_PATH).'?'.parse_url($expired, PHP_URL_QUERY))->assertStatus(403);
         $user->forceFill(['auth_version' => $user->auth_version + 1])->save();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', $link)->assertStatus(403)->assertJsonPath('error.code', 'VERIFICATION_LINK_STALE');
+        $this->requestJson('POST', $link)->assertStatus(403)->assertJsonPath('error.code', 'VERIFICATION_LINK_STALE');
         self::assertNull($user->fresh()->email_verified_at);
     }
 
@@ -143,9 +138,8 @@ final class EmailVerificationTest extends TestCase
     {
         $user = $this->member();
         $this->csrf();
-        $this->login($user)->assertOk();
         $link = $this->link($user);
-        $this->requestJson('GET', str_replace('signature=', 'signature%5B%5D=', $link))->assertStatus(403)->assertJsonPath('error.code', 'INVALID_VERIFICATION_LINK');
+        $this->requestJson('POST', str_replace('signature=', 'signature%5B%5D=', $link))->assertStatus(403)->assertJsonPath('error.code', 'INVALID_VERIFICATION_LINK');
         self::assertNull($user->fresh()->email_verified_at);
     }
 
@@ -154,7 +148,6 @@ final class EmailVerificationTest extends TestCase
         $user = $this->member();
         $actions = [
             fn () => app(VerifyEmailAndActivateMembership::class)->handle((int) $user->id, (string) $user->id, sha1($user->email), (string) $user->auth_version, (string) Str::uuid(), 0),
-            fn () => app(ResendVerificationEmail::class)->handle((int) $user->id, 0),
         ];
         foreach ($actions as $action) {
             try {
@@ -183,8 +176,7 @@ final class EmailVerificationTest extends TestCase
         $user->email = 'changed-'.bin2hex(random_bytes(8)).'@example.test';
         $user->save();
         $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', $link)->assertStatus(403)->assertJsonPath('error.code', 'VERIFICATION_LINK_STALE');
+        $this->requestJson('POST', $link)->assertStatus(403)->assertJsonPath('error.code', 'VERIFICATION_LINK_STALE');
         self::assertNull($user->fresh()->email_verified_at);
     }
 
@@ -194,8 +186,7 @@ final class EmailVerificationTest extends TestCase
         $user = $this->member();
         $user->membership->forceFill(['status' => $status, 'member_number' => 'TEST-'.bin2hex(random_bytes(8)), 'joined_at' => now('UTC')])->save();
         $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', $this->link($user))->assertStatus(409)->assertJsonPath('error.code', 'MEMBERSHIP_NOT_ACTIVATABLE');
+        $this->requestJson('POST', $this->link($user))->assertStatus(409)->assertJsonPath('error.code', 'MEMBERSHIP_NOT_ACTIVATABLE');
         self::assertSame($status, $user->membership->fresh()->status->value);
         self::assertNull($user->fresh()->email_verified_at);
     }
@@ -209,9 +200,8 @@ final class EmailVerificationTest extends TestCase
     {
         $user = $this->member();
         $this->csrf();
-        $this->login($user)->assertOk();
         $user->forceFill(['status' => 'blocked', 'blocked_at' => now('UTC')])->save();
-        $this->requestJson('GET', $this->link($user))->assertStatus(403)->assertJsonPath('error.code', 'ACCOUNT_BLOCKED');
+        $this->requestJson('POST', $this->link($user))->assertStatus(403)->assertJsonPath('error.code', 'ACCOUNT_BLOCKED');
         $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(401);
     }
 
@@ -221,14 +211,13 @@ final class EmailVerificationTest extends TestCase
         $user->memberProfile()->delete();
         $next = MemberNumberSequence::query()->findOrFail('membership')->next_value;
         $this->csrf();
-        $this->login($user)->assertOk();
         $link = $this->link($user);
-        $this->requestJson('GET', $link)->assertOk()->assertJsonPath('data.result', 'email_verified_profile_incomplete')->assertJsonPath('data.membership.member_number', null);
+        $this->requestJson('POST', $link)->assertOk()->assertJsonPath('data.result', 'email_verified_profile_incomplete');
         self::assertNotNull($user->fresh()->email_verified_at);
         self::assertSame($next, MemberNumberSequence::query()->findOrFail('membership')->next_value);
         self::assertSame(0, $user->membership->credentials()->count());
         $user->memberProfile()->create(['full_name' => 'Anggota Uji', 'birth_date' => '2000-01-01', 'phone' => '+6281234567890', 'city' => 'Kota Uji']);
-        $this->requestJson('GET', $link)->assertOk()->assertJsonPath('data.result', 'membership_activated');
+        $this->requestJson('POST', $link)->assertOk()->assertJsonPath('data.result', 'email_verified');
     }
 
     #[DataProvider('rollbackFailures')]
@@ -264,8 +253,7 @@ final class EmailVerificationTest extends TestCase
         $user = $this->member();
         config(['sorerunapp.membership.number_prefix' => null]);
         $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', $this->link($user))->assertStatus(503);
+        $this->requestJson('POST', $this->link($user))->assertStatus(503);
         self::assertNull($user->fresh()->email_verified_at);
         self::assertNull($user->membership->fresh()->member_number);
     }
@@ -306,6 +294,8 @@ final class EmailVerificationTest extends TestCase
         $user->refresh();
         self::assertNotNull($user->email_verified_at);
 
+        $this->csrf();
+        $this->login($user)->assertOk();
         if ($state === 'email') {
             $user->forceFill(['email_verified_at' => null])->save();
 
@@ -316,9 +306,7 @@ final class EmailVerificationTest extends TestCase
         } else {
             $user->membership->forceFill(['status' => $state])->save();
         }
-        $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(403)->assertJsonPath('error.code', 'MEMBERSHIP_CARD_UNAVAILABLE');
+        $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(403)->assertJsonPath('error.code', $state === 'email' ? 'EMAIL_NOT_VERIFIED' : 'MEMBERSHIP_CARD_UNAVAILABLE');
     }
 
     public static function ineligibleCardStates(): array
@@ -326,30 +314,93 @@ final class EmailVerificationTest extends TestCase
         return [['email'], ['profile'], ['suspended'], ['ended']];
     }
 
-    public function test_resend_requires_csrf_rejects_client_identity_and_obeys_cooldown(): void
+    public function test_public_resend_requires_csrf_and_recipient_cooldown_is_generic(): void
     {
         $user = $this->member();
         $this->csrf();
-        $this->login($user)->assertOk();
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend', [], false)->assertStatus(419);
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend', ['user_id' => 1])->assertStatus(422);
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend')->assertStatus(202)->assertJsonPath('data.result', 'verification_requested');
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend')->assertStatus(429)->assertHeader('Retry-After');
+        $path = '/api/v1/auth/email-verification/resend';
+        $data = ['email' => $user->email];
+        $this->requestJson('POST', $path, $data, false)->assertStatus(419);
+        $this->requestJson('POST', $path, $data + ['user_id' => 1])->assertStatus(422);
+        $first = $this->requestJson('POST', $path, $data)->assertStatus(202)->assertHeader('Retry-After', '60');
+        $again = $this->requestJson('POST', $path, $data)->assertStatus(202)->assertHeader('Retry-After', '60');
+        self::assertSame($first->json('data'), $again->json('data'));
         self::assertSame(1, $user->notificationDeliveries()->count());
+        $unknown = $this->requestJson('POST', $path, ['email' => 'unknown@example.test'])->assertStatus(202);
+        self::assertSame($first->json('data'), $unknown->json('data'));
+        $this->requestJson('GET', '/api/v1/auth/me')->assertStatus(401);
         DB::table('notification_deliveries')->where('user_id', $user->id)->update(['created_at' => now('UTC')->subSeconds(61)]);
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend')->assertStatus(202);
+        $this->requestJson('POST', $path, $data)->assertStatus(202);
         self::assertSame(2, $user->notificationDeliveries()->count());
     }
 
-    public function test_active_member_resend_is_idempotent_and_guest_cannot_resend(): void
+    public function test_public_resend_does_not_reveal_verified_or_blocked_accounts(): void
+    {
+        $active = $this->member();
+        $this->activate($active);
+        $blocked = $this->member();
+        $blocked->forceFill(['status' => 'blocked', 'blocked_at' => now('UTC')])->save();
+        $this->csrf();
+        $before = DB::table('notification_deliveries')->count();
+        $responses = [];
+        foreach ([$active->email, $blocked->email, 'absent@example.test'] as $email) {
+            $responses[] = $this->requestJson('POST', '/api/v1/auth/email-verification/resend', ['email' => $email])->assertStatus(202)->assertHeader('Retry-After', '60')->json('data');
+        }
+        self::assertSame($responses[0], $responses[1]);
+        self::assertSame($responses[0], $responses[2]);
+        self::assertSame($before, DB::table('notification_deliveries')->count());
+    }
+
+    public function test_public_proof_rejects_client_identity_and_invalid_json_without_writes(): void
+    {
+        $user = $this->member();
+        $this->csrf();
+        $this->requestJson('POST', $this->link($user), ['user_id' => $user->id])->assertStatus(422);
+        $this->requestJson('POST', $this->link($user), [], true, ['Content-Type' => 'text/plain'])->assertStatus(415);
+        self::assertNull($user->fresh()->email_verified_at);
+        self::assertSame(0, $user->membership->credentials()->count());
+    }
+
+    public function test_public_resend_validates_email_and_limits_unknown_addresses_too(): void
     {
         $this->csrf();
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend')->assertStatus(401);
+        $path = '/api/v1/auth/email-verification/resend';
+        $this->requestJson('POST', $path, ['email' => 'invalid'])->assertStatus(422);
+        $this->requestJson('POST', $path)->assertStatus(422);
+        Cache::store('array')->flush();
+        for ($i = 0; $i < 5; $i++) {
+            $this->requestJson('POST', $path, ['email' => 'absent@example.test'])->assertStatus(202);
+        }
+        $this->requestJson('POST', $path, ['email' => 'absent@example.test'])->assertStatus(429)->assertHeader('Retry-After');
+    }
+
+    #[DataProvider('invalidProofBodies')]
+    public function test_public_proof_rejects_malformed_nonobject_deep_and_large_json(string $body, int $status): void
+    {
         $user = $this->member();
-        $this->activate($user);
-        $before = $user->notificationDeliveries()->count();
+        $this->csrf();
+        $this->requestJson('POST', $this->link($user), rawBody: $body)->assertStatus($status);
+        self::assertNull($user->fresh()->email_verified_at);
+        self::assertSame(0, $user->membership->credentials()->count());
+    }
+
+    public static function invalidProofBodies(): array
+    {
+        return [
+            ['{', 400], ['[]', 400], ['true', 400],
+            [str_repeat(' ', 4097).'{}', 413],
+            ['{"a":'.str_repeat('[', 9).'0'.str_repeat(']', 9).'}', 400],
+        ];
+    }
+
+    public function test_verification_retires_an_old_unverified_session_instead_of_turning_it_into_a_login(): void
+    {
+        $user = $this->member();
+        $user->forceFill(['email_verified_at' => now('UTC')])->save();
+        $this->csrf();
         $this->login($user)->assertOk();
-        $this->requestJson('POST', '/api/v1/auth/email-verification/resend')->assertStatus(202);
-        self::assertSame($before, $user->notificationDeliveries()->count());
+        $user->forceFill(['email_verified_at' => null])->save();
+        $this->requestJson('POST', $this->link($user))->assertOk()->assertJsonPath('data.result', 'email_verified');
+        $this->requestJson('GET', '/api/v1/auth/me')->assertStatus(401);
     }
 }

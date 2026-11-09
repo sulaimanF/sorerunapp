@@ -1,3 +1,5 @@
+> **ALUR EMAIL-FIRST (24 Oktober 2026):** aturan login/verifikasi lama pada dokumen tahap ini telah digantikan oleh `docs/PANDUAN_EMAIL_FIRST.md` dan `docs/API_EMAIL_FIRST.md`. Verifikasi email wajib sebelum login; pengujian profil memakai akun terverifikasi.
+
 # Panduan Tahap 06 — Frontend Anggota
 
 Status: implementasi tahap 06 untuk diterapkan dan diuji pada Laragon.

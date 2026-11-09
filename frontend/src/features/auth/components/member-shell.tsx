@@ -2,12 +2,13 @@
 import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CreditCard, Home, LogOut, UserRound } from "lucide-react";
+import { CreditCard, Home, UserRound } from "lucide-react";
 import { Brand } from "@/components/shared/brand";
 import { Alert, LoadingPanel } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/providers/session-provider";
-import { safeReturnPath } from "../navigation";
+import { AUTH_NAVIGATION } from "../navigation";
+import { LogoutConfirmation } from "./logout-confirmation";
 
 const nav = [
   { href: "/beranda", label: "Beranda", Icon: Home },
@@ -25,10 +26,8 @@ export function MemberShell({ children }: { children: ReactNode }) {
       !auth.session &&
       auth.transition === "idle"
     )
-      router.replace(
-        `/login?returnTo=${encodeURIComponent(safeReturnPath(path))}`,
-      );
-  }, [auth.loading, auth.error, auth.session, auth.transition, path, router]);
+      router.replace(AUTH_NAVIGATION.login);
+  }, [auth.loading, auth.error, auth.session, auth.transition, router]);
   if (auth.error)
     return (
       <main className="recovery-panel stack-medium">
@@ -42,7 +41,7 @@ export function MemberShell({ children }: { children: ReactNode }) {
           Coba Lagi
         </Button>
         <Button variant="outline" asChild>
-          <Link href="/login">Ke Halaman Login</Link>
+          <Link href={AUTH_NAVIGATION.login}>Ke Halaman Login</Link>
         </Button>
       </main>
     );
@@ -67,19 +66,7 @@ export function MemberShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="account-menu">
             <span>{auth.session.user.full_name}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Keluar dari akun"
-              onClick={() => {
-                void auth
-                  .logout()
-                  .then(() => router.replace("/login"))
-                  .catch(() => undefined);
-              }}
-            >
-              <LogOut size={20} aria-hidden />
-            </Button>
+            <LogoutConfirmation />
           </div>
         </div>
       </header>

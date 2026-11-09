@@ -8,7 +8,7 @@ import { Alert } from "@/components/shared/feedback";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { normalizeApiError, type ApiError } from "@/lib/errors";
+import { isSessionRejection, normalizeApiError, type ApiError } from "@/lib/errors";
 import { clearPrivateQueries, sessionKey } from "@/lib/query-client";
 import type { BrowserSession } from "@/features/auth/types";
 import { getMemberProfile, updateMemberProfile } from "../services";
@@ -49,7 +49,7 @@ export function ProfileEditor({ profile, userId }: { profile: MemberProfile; use
   async function showError(error: unknown, controller: AbortController) {
     if (controller.signal.aborted || !sameAccount()) return;
     const parsed = normalizeApiError(error);
-    if (parsed.status === 401 || parsed.code === "ACCOUNT_BLOCKED") {
+    if (isSessionRejection(parsed)) {
       await clearPrivateQueries(client);
       await client.invalidateQueries({ queryKey: sessionKey });
       return;

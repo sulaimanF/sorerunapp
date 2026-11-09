@@ -8,6 +8,8 @@ export function SessionSafetyBoundary({ children }: { children: ReactNode }) {
   const auth = useSession();
   if (auth.transition === "logout")
     return <LoadingPanel>Mengakhiri sesi…</LoadingPanel>;
+  if (auth.transition === "logout-check")
+    return <LoadingPanel>Memeriksa sesi…</LoadingPanel>;
   if (auth.transition === "logout-unknown")
     return (
       <main className="recovery-panel stack-medium">
@@ -15,6 +17,9 @@ export function SessionSafetyBoundary({ children }: { children: ReactNode }) {
         <Alert>
           Data privat sudah disembunyikan. Periksa koneksi, lalu coba keluar
           kembali atau periksa sesi.
+          {auth.recoveryError && (
+            <p>Pemeriksaan sesi belum berhasil. {auth.recoveryError.message}</p>
+          )}
         </Alert>
         <Button
           onClick={() => {

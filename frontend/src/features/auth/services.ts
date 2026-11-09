@@ -32,11 +32,19 @@ export async function loginMember(credentials: LoginCredentials) {
       502,
       "INVALID_RESPONSE",
     );
+  if (!parsed.data.user.email_verified)
+    throw new ApiError("Verifikasi email Anda sebelum masuk.", 403, "EMAIL_NOT_VERIFIED");
   return parsed.data;
 }
 export async function logoutMember() {
   await initializeCsrf();
-  await api.post("/api/v1/auth/logout", {});
+  const response = await api.post("/api/v1/auth/logout", {});
+  if (response.status !== 204)
+    throw new ApiError(
+      "Status keluar belum terkonfirmasi. Periksa sesi Anda.",
+      502,
+      "INVALID_RESPONSE",
+    );
 }
 export async function registerMember(values: RegistrationValues) {
   const birthDate = birthDateToIso(values.birth_date);
@@ -59,26 +67,24 @@ export async function registerMember(values: RegistrationValues) {
       "INVALID_RESPONSE",
     );
 }
-export async function resendVerification() {
+export async function resendVerification(email: string) {
   await initializeCsrf();
-  const response = await api.post("/api/v1/auth/email-verification/resend", {});
-  if (response.status !== 202)
+  const response = await api.post("/api/v1/auth/email-verification/resend", { email });
+  if (response.status !== 202 || response.data?.data?.result !== "verification_requested")
     throw new ApiError(
       "Permintaan pengiriman ulang belum terkonfirmasi.",
       502,
       "INVALID_RESPONSE",
     );
+  const retryAfter = Number(response.headers["retry-after"]);
+  return Number.isFinite(retryAfter) ? Math.min(3600, Math.max(1, Math.ceil(retryAfter))) : 60;
 }
 const verificationResultSchema = z.object({
   result: z.enum([
-    "membership_activated",
-    "already_active",
+    "email_verified",
+    "already_verified",
     "email_verified_profile_incomplete",
   ]),
-  membership: z.object({
-    status: z.enum(["active", "pending_verification"]),
-    member_number: z.string().nullable(),
-  }),
 });
 export async function verifyMemberEmail(path: string) {
   if (verificationPath(apiOrigin() + path, apiOrigin()) !== path)
@@ -89,7 +95,8 @@ export async function verifyMemberEmail(path: string) {
     );
   let response;
   try {
-    response = await api.get(path);
+    await initializeCsrf();
+    response = await api.post(path, {});
   } catch (error) {
     if (
       error instanceof ApiError &&

@@ -77,14 +77,14 @@ final class BrowserSessionTest extends TestCase
         $this->requestJson('GET', '/api/v1/auth/me')->assertStatus(401)->assertJsonPath('error.code', 'UNAUTHENTICATED');
     }
 
-    public function test_unverified_member_logs_in_with_rotated_database_session_without_activation(): void
+    public function test_verified_member_logs_in_with_rotated_database_session_without_activation(): void
     {
         $user = $this->member();
         $this->csrf();
         $before = $this->sessionId();
         $domainCounts = $this->domainCounts();
         $response = $this->login($user)->assertOk()->assertJsonPath('data.user.id', $user->id)
-            ->assertJsonPath('data.user.email_verified', false)
+            ->assertJsonPath('data.user.email_verified', true)
             ->assertJsonPath('data.membership.status', 'pending_verification')
             ->assertJsonPath('data.membership.member_number', null)
             ->assertJsonPath('data.profile_complete', true)->assertJsonPath('data.roles', ['member']);
@@ -94,7 +94,7 @@ final class BrowserSessionTest extends TestCase
         self::assertTrue(DB::table('sessions')->where('id', $after)->where('user_id', $user->id)->exists());
         self::assertSame($user->auth_version, app('session')->driver()->get(BrowserSession::AUTH_VERSION));
         self::assertSame($domainCounts, $this->domainCounts());
-        self::assertNull($user->fresh()->email_verified_at);
+        self::assertNotNull($user->fresh()->email_verified_at);
         self::assertSame(MembershipStatus::PendingVerification, $user->membership->fresh()->status);
         $this->assertSafeResponse($response);
         Mail::assertNothingSent();
@@ -434,10 +434,35 @@ final class BrowserSessionTest extends TestCase
         self::assertSame($user->auth_version, $fresh->auth_version);
     }
 
+    public function test_unverified_correct_credentials_are_denied_without_authenticated_session(): void
+    {
+        $user = $this->member();
+        $user->forceFill(['email_verified_at' => null])->save();
+        $this->csrf();
+        $before = $this->domainCounts();
+        $this->login($user, 'Wrong-password')->assertStatus(401)->assertJsonPath('error.code', 'INVALID_CREDENTIALS');
+        $this->login($user)->assertStatus(403)->assertJsonPath('error.code', 'EMAIL_NOT_VERIFIED');
+        $this->requestJson('GET', '/api/v1/auth/me')->assertStatus(401);
+        self::assertFalse(DB::table('sessions')->where('user_id', $user->id)->exists());
+        self::assertSame($before, $this->domainCounts());
+    }
+
+    public function test_legacy_unverified_session_is_invalidated_on_next_private_request(): void
+    {
+        $user = $this->member();
+        $this->csrf();
+        $this->login($user)->assertOk();
+        $old = $this->sessionId();
+        $user->forceFill(['email_verified_at' => null])->save();
+        $this->requestJson('GET', '/api/v1/auth/me')->assertStatus(403)->assertJsonPath('error.code', 'EMAIL_NOT_VERIFIED');
+        self::assertFalse(DB::table('sessions')->where('id', $old)->exists());
+        $this->requestJson('GET', '/api/v1/me/membership/card')->assertStatus(401);
+    }
+
     private function member(string $password = self::PASSWORD): User
     {
         $user = User::factory()->create(['email' => 'session-'.bin2hex(random_bytes(8)).'@example.test', 'password' => $password]);
-        $user->forceFill(['email_verified_at' => null])->save();
+        $user->forceFill(['email_verified_at' => now('UTC')])->save();
         $user->memberProfile()->create(['full_name' => 'Anggota Sesi Uji', 'birth_date' => '2000-01-01', 'phone' => '+6281234567890', 'city' => 'Kota Uji']);
         $user->membership()->save(new Membership);
         $user->roles()->attach(Role::query()->where('code', 'member')->value('id'), ['assigned_by' => null, 'assigned_at' => now('UTC')]);

@@ -25,7 +25,7 @@ trait VerificationBrowser
         return $this->requestJson('POST', '/api/v1/auth/login', ['email' => $user->email, 'password' => $password]);
     }
 
-    private function requestJson(string $method, string $path, array $data = [], bool $csrf = true, array $extraHeaders = []): TestResponse
+    private function requestJson(string $method, string $path, array $data = [], bool $csrf = true, array $extraHeaders = [], ?string $rawBody = null): TestResponse
     {
         // Rebuild per-request services so a cached guard cannot fake cookie authentication.
         Auth::forgetGuards();
@@ -40,7 +40,26 @@ trait VerificationBrowser
         if ($csrf && isset($this->browserCookies['XSRF-TOKEN'])) {
             $headers['X-XSRF-TOKEN'] = $this->browserCookies['XSRF-TOKEN'];
         }
-        $response = $this->json($method, 'http://localhost:8000'.$path, $data, array_replace($headers, $extraHeaders));
+        if ($rawBody === null) {
+            $response = $this->json(
+                $method,
+                'http://localhost:8000'.$path,
+                $data,
+                array_replace($headers, $extraHeaders),
+                $method === 'POST' && $data === [] ? JSON_FORCE_OBJECT : 0,
+            );
+        } else {
+            // call() needs explicit cookies; withCredentials() alone does not attach them.
+            $response = $this->call(
+                $method,
+                'http://localhost:8000'.$path,
+                cookies: $this->prepareCookiesForJsonRequest(),
+                server: $this->transformHeadersToServerVars(
+                    array_replace($headers, ['Content-Type' => 'application/json'], $extraHeaders),
+                ),
+                content: $rawBody,
+            );
+        }
         foreach ($response->headers->getCookies() as $cookie) {
             if ($cookie->getExpiresTime() > 0 && $cookie->getExpiresTime() <= time()) {
                 unset($this->browserCookies[$cookie->getName()]);

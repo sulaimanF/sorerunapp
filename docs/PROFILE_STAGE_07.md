@@ -1,3 +1,5 @@
+> **ALUR EMAIL-FIRST (24 Oktober 2026):** aturan login/verifikasi lama pada dokumen tahap ini telah digantikan oleh `docs/PANDUAN_EMAIL_FIRST.md` dan `docs/API_EMAIL_FIRST.md`. Verifikasi email wajib sebelum login; pengujian profil memakai akun terverifikasi.
+
 # Tahap 07 — Biodata Anggota
 
 Tanggal: 24 Oktober 2026. Acuan bisnis: PRD final FR-04, BR-18, BP-02 serta ketentuan aktivasi otomatis; arsitektur Bagian 7–8, 11–12 dan urutan implementasi Bagian 20; design system untuk form profil dan state error/loading; aturan AGENTS.md.
