@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.3 |
-| Tanggal | 9 November 2026 |
+| Versi dokumen | 1.4 |
+| Tanggal | 10 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Acuan bisnis | PRD.md final, termasuk revisi versi teknologi |
@@ -206,7 +206,8 @@ CORS tidak menggunakan wildcard bersama credentials. Endpoint auth juga diberi r
 - Tamu yang membuka route privat, sesi berakhir, dan logout berhasil menuju /login. Semua login berhasil menuju /beranda. Tidak menyimpan/meneruskan halaman sebelumnya sebagai tujuan login.
 - Form login tidak membaca returnTo sebagai tujuan. Query/hash pada tautan login lama dibersihkan memakai history.replaceState setelah mount; destination tetap berasal dari konstanta internal.
 - Perpindahan menu saat sesi valid tetap ke halaman yang dipilih. Logout dan guard sesi memakai tujuan yang sama sehingga tidak saling menimpa dengan parameter halaman asal.
-- Banner sesi aktif/manual lanjut dipertahankan; tautan lanjut menuju /beranda. Hasil verifikasi, termasuk profil incomplete, menawarkan /login; profil dapat dilengkapi setelah masuk melalui navigasi anggota.
+- Login berhasil menyimpan sesi dan mempertahankan transisi `login-redirect` sampai beranda terbuka. Halaman login menampilkan loading selama navigasi, tanpa banner sesi aktif atau aksi lanjut manual. Jika /login dibuka dengan sesi existing, form tetap tersedia tanpa banner; tidak menambah auto-redirect saat sekadar membuka halaman. Hasil verifikasi, termasuk profil incomplete, menawarkan /login; profil dapat dilengkapi setelah masuk melalui navigasi anggota.
+- MemberShell menyelesaikan transisi login saat pathname /beranda aktif. Guard hanya bekerja pada route anggota aktif dan menunggu GET sesi yang masih berlangsung ketika data sesi kosong; data privat tetap disembunyikan sampai pemeriksaan selesai. Setelah hasil guest/penolakan pasti, guard tetap menuju /login.
 - HTTP auth/session, CSRF, pembersihan cache privat, email verified wajib, dan permission backend tetap berlaku. Gangguan jaringan tidak diperlakukan sebagai logout berhasil.
 
 ### 7.2 Izin
@@ -756,3 +757,7 @@ Revisi tahap 7 — konfirmasi logout: dialog merupakan state UI frontend. POST /
 ## 23. Revisi pemulihan password 1.3 — 9 November 2026
 
 Melengkapi §8.3/11.7/12.2 untuk FR-03: broker database Laravel, binding token pada penerima/versi akun, konsumsi atomik dengan pencabutan sesi, proof outbox terenkripsi sementara, dan retry tanpa penerbitan ulang token. Kontrak payload dan operasi terdokumentasi pada API_CONTRACT/PASSWORD_RESET_STAGE08. Status dokumen tetap Final; stack, batas domain, dan aturan login tidak berubah.
+
+## 24. Revisi transisi login 1.4 — 10 November 2026
+
+Sesuai instruksi pemilik produk, banner sesi aktif dan tautan lanjut manual pada login digantikan alur submit → Memeriksa akun… → /beranda. Transisi tetap aktif sampai halaman tujuan terbuka; aturan ini menggantikan ketentuan banner pada revisi sebelumnya. Kegagalan login tetap mempertahankan form/error. Tidak ada perubahan API, database, CSRF, atau syarat enabled/verified. Status Final dipertahankan.

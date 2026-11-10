@@ -79,15 +79,87 @@ test("expired session while opening another menu returns to clean login, then ho
   await submitLogin(page);
 });
 
-test("existing-session banner is preserved and continues to home", async ({ page, context }) => {
-  await fixtureApi(context, { loggedIn: true });
+test("an existing session opens login without the old banner and can submit directly to home", async ({ page, context }) => {
+  const state = await fixtureApi(context, { loggedIn: true });
   await page.goto("/login?returnTo=%2Fprofil");
   await expect(page).toHaveURL(`${FRONTEND}/login`);
-  const link = page.getByRole("link", { name: "Lanjutkan ke akun Anda" });
-  await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute("href", "/beranda");
-  await link.click();
-  await expect(page).toHaveURL(`${FRONTEND}/beranda`);
+  await expect(page.getByRole("form", { name: "Form login" })).toBeVisible();
+  await expect(page.getByText(/Anda sedang masuk sebagai/)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Lanjutkan ke akun Anda" })).toHaveCount(0);
+  await submitLogin(page);
+  expect(state.loginCount).toBe(1);
+});
+
+test("login stays in loading through a delayed navigation and never flashes a session banner", async ({ page, context }) => {
+  const state = await fixtureApi(context);
+  let releaseLogin = () => {};
+  let releaseNavigation = () => {};
+  const loginGate = new Promise<void>(resolve => { releaseLogin = resolve; });
+  const navigationGate = new Promise<void>(resolve => { releaseNavigation = resolve; });
+  let loginRequests = 0;
+  let navigationRequested = false;
+  await context.route(`${API}/api/v1/auth/login`, async route => {
+    loginRequests++;
+    await loginGate;
+    await route.fallback();
+  });
+  await page.route(`${FRONTEND}/beranda*`, async route => {
+    navigationRequested = true;
+    await navigationGate;
+    await route.continue();
+  });
+  try {
+    await page.goto("/login");
+    await page.getByRole("textbox", { name: "Email", exact: true }).fill(email);
+    await page.getByLabel(/^Password/).fill("Test-only-password-123");
+    await page.getByRole("button", { name: "Masuk", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Memeriksa akun…", exact: true })).toBeDisabled();
+    releaseLogin();
+    await expect.poll(() => navigationRequested).toBe(true);
+    await expect(page.getByRole("status")).toContainText("Memeriksa akun…");
+    await expect(page.getByRole("form", { name: "Form login" })).toHaveCount(0);
+    await expect(page.getByText(/Anda sedang masuk sebagai/)).toHaveCount(0);
+    expect(loginRequests).toBe(1);
+    releaseNavigation();
+    await expect(page).toHaveURL(`${FRONTEND}/beranda`);
+    await expect(page.getByRole("navigation", { name: "Navigasi utama" })).toBeVisible();
+    expect(state.loginCount).toBe(1);
+  } finally {
+    releaseLogin();
+    releaseNavigation();
+  }
+});
+
+test("a signed-out visit to a cached member page can log in again without bouncing back", async ({ page, context }) => {
+  const state = await fixtureApi(context);
+  await login(page, "/kartu");
+  state.loggedIn = false;
+  // A cross-tab session change clears cached identity before the slow GET finishes.
+  let releaseLookup = () => {};
+  const lookupGate = new Promise<void>(resolve => { releaseLookup = resolve; });
+  let checking = false;
+  await context.route(`${API}/api/v1/auth/me`, async route => {
+    checking = true;
+    await lookupGate;
+    await route.fallback();
+  });
+  try {
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel("sorerunapp-session");
+      channel.postMessage("session-changed");
+      channel.close();
+    });
+    await expect.poll(() => checking).toBe(true);
+    await expect(page.getByRole("status")).toContainText("Memeriksa akun…");
+    await expect(page).toHaveURL(`${FRONTEND}/kartu`);
+    releaseLookup();
+    await expect(page).toHaveURL(`${FRONTEND}/login`);
+    await submitLogin(page);
+    await expect(page.getByRole("navigation", { name: "Navigasi utama" })).toBeVisible();
+    expect(state.loginCount).toBe(2);
+  } finally {
+    releaseLookup();
+  }
 });
 
 test("incomplete-profile verification still offers clean login, without automatic sign-in", async ({ page, context }) => {

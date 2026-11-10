@@ -2,7 +2,7 @@
 
 Panduan kerja AI untuk pengembangan aplikasi membership Sore Running Club (SRC). Letakkan file ini di root repository sorerunapp, sejajar dengan PRD.md, ARCHITECTURE.md, SYSTEM_DESIGN.md, frontend/, dan backend/.
 
-Versi panduan: 1.2 — 25 Oktober 2026. Panduan ini disusun dari tiga dokumen final yang telah disetujui pemilik produk. Aturan di dalamnya mengatur cara implementasi; tidak memberikan kewenangan mengubah keputusan produk secara sepihak.
+Versi panduan: 1.3 — 10 November 2026. Panduan ini disusun dari tiga dokumen final yang telah disetujui pemilik produk. Aturan di dalamnya mengatur cara implementasi; tidak memberikan kewenangan mengubah keputusan produk secara sepihak.
 
 Status: **Final — disetujui pemilik produk sebagai panduan kerja AI untuk pengembangan sorerunapp.**
 
@@ -59,7 +59,7 @@ Gunakan npm di frontend sebagai baseline kecuali repo telah menetapkan satu pack
 
 - Satu komunitas; membership gratis tanpa kedaluwarsa otomatis. Registrasi sekali; email terverifikasi dan profil wajib lengkap sebelum aktivasi otomatis, tanpa approval admin.
 - Login hanya setelah email terverifikasi dan akun enabled. Pendaftar unverified hanya memakai flow publik verifikasi/resend; tidak membuat sesi login. GET tautan read-only, POST konfirmasi memakai signed URL + CSRF, tanpa auto-login. Sesi lama unverified ditolak/dicabut dan cache privat dibersihkan. Resend publik menerima email dengan respons generik, cooldown, dan limit email/IP.
-- Navigasi auth memakai tujuan tetap: / → /login, login berhasil → /beranda, logout/sesi berakhir/tamu pada route privat → /login. Jangan menambahkan kembali returnTo atau tujuan login dari query/storage. Pertahankan perpindahan menu tanpa login ulang selama sesi valid serta banner sesi aktif/manual lanjut. Susunan tautan tiga halaman auth mengikuti revisi SYSTEM_DESIGN 1.3.
+- Navigasi auth memakai tujuan tetap: / → /login, login berhasil → /beranda, logout/sesi berakhir/tamu pada route privat → /login. Jangan menambahkan kembali returnTo atau tujuan login dari query/storage. Pertahankan perpindahan menu tanpa login ulang selama sesi valid. Login berhasil mempertahankan loading sampai beranda terbuka, tanpa banner sesi aktif atau aksi lanjut manual sesuai revisi SYSTEM_DESIGN 1.5; susunan footer auth tetap.
 - Nama, tanggal lahir, telepon, dan domisili wajib; foto opsional. Anggota di bawah umur diperbolehkan. Jangan menambah NIK/KTP, data kesehatan, atau batas usia minimum otomatis.
 - Akun, profil, membership, credential QR, event, dan attendance adalah domain terpisah. Satu akun maksimum satu membership pada komunitas ini.
 - Nomor member unik, stabil, tidak dipakai ulang. Reaktivasi ended oleh admin memakai membership dan nomor yang sama selama belum dianonimkan.
@@ -255,3 +255,5 @@ Jika pekerjaan berlanjut pada sesi lain, gunakan status nyata repo/dokumen dan c
 Revisi 1.1 tetap final: menyelaraskan alur email-before-login dan acuan Sunset yang telah disetujui; tidak memberi otorisasi mengubah fitur lain.
 
 Revisi 1.2 tetap final: navigasi auth tanpa returnTo dan susunan tautan auth yang telah disetujui pemilik produk. Backend/session policy serta palet Sunset tetap.
+
+Revisi 1.3 tetap final: mengikuti instruksi pemilik produk untuk login langsung ke beranda tanpa banner sesi aktif/aksi lanjut manual. Uji transisi lambat, guard saat pemeriksaan sesi, dan kegagalan login; backend/session policy serta palet Sunset tetap.

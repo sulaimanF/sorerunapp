@@ -14,11 +14,11 @@ async function fillReset(page: Page) {
   await page.getByLabel(/^Konfirmasi password baru/).fill("New-test-password-123");
 }
 
-test("login exposes recovery while keeping active-session banner and fixed navigation", async ({ page, context }) => {
+test("login exposes recovery without an active-session banner and keeps fixed navigation", async ({ page, context }) => {
   const state = await fixtureApi(context, { loggedIn: true });
   await page.goto("/login?returnTo=/profil");
   await expect(page.getByRole("link", { name: "Lupa password?" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Lanjutkan ke akun Anda/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Lanjutkan ke akun Anda/i })).toHaveCount(0);
   await page.getByRole("link", { name: "Lupa password?" }).click();
   await expect(page).toHaveURL(/\/forgot-password$/);
   expect(state.loggedIn).toBe(true);
@@ -109,7 +109,8 @@ test("successful reset keeps another active identity and still requires manual n
   expect(state.loggedIn).toBe(true);
   expect(state.loginCount).toBe(0);
   await page.getByRole("link", { name: "Masuk ke Akun" }).click();
-  await expect(page.getByRole("link", { name: "Lanjutkan ke akun Anda" })).toBeVisible();
+  await expect(page.getByRole("form", { name: "Form login" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Lanjutkan ke akun Anda" })).toHaveCount(0);
   await expect(page).toHaveURL(/\/login$/);
 });
 

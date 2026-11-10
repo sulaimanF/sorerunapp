@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.4 |
-| Tanggal | 9 November 2026 |
+| Versi dokumen | 1.5 |
+| Tanggal | 10 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Jenis dokumen | Design system visual dan pedoman UI/UX |
@@ -374,7 +374,7 @@ Alur wajib: Daftar Member → Periksa Email → buka tautan → klik Verifikasi 
 
 Hasil verifikasi memisahkan berhasil, sudah diverifikasi, kedaluwarsa, invalid, dan profil belum lengkap. Berhasil/sudah diverifikasi menampilkan Masuk ke Akun; profil belum lengkap tetap menawarkan /login, lalu pengguna masuk ke /beranda dan dapat membuka Profil melalui menu. Invalid/expired menawarkan Kirim Ulang Email. Tidak menawarkan approval admin karena aktivasi otomatis.
 
-Login dengan password benar tetapi email belum terverifikasi menampilkan pesan Verifikasi email Anda sebelum masuk dan tautan Kirim Ulang Email. Pertahankan input pada error. Pertahankan perilaku login awal yang disetujui pemilik produk, termasuk banner sesi aktif/manual lanjut dan countdown khusus rate limit 429; perubahan ini tidak menambahkan auto-redirect atau countdown setelah sukses.
+Login dengan password benar tetapi email belum terverifikasi menampilkan pesan Verifikasi email Anda sebelum masuk dan tautan Kirim Ulang Email. Pertahankan input pada error dan countdown khusus rate limit 429. Saat submit, tombol berubah menjadi Memeriksa akun… dan tidak menerima submit ganda. Sesudah pemeriksaan berhasil, form diganti loading Memeriksa akun… sampai langsung membuka /beranda. Tidak menampilkan banner Anda sedang masuk sebagai…, aksi Lanjutkan ke akun Anda, atau countdown sukses. Saat halaman /login dibuka dengan sesi existing, form tetap tersedia tanpa banner; tidak menambah redirect hanya karena membuka halaman tersebut.
 
 Halaman kirim ulang publik berisi input email berlabel, tombol Kirim Ulang Email, state loading/error, dan respons generik: Jika alamat email memenuhi syarat, email verifikasi akan diproses. Periksa kotak masuk dan spam. Tombol mengikuti Retry-After server, termasuk cooldown 60 detik pada respons diterima. Tidak mengungkap apakah alamat terdaftar, blocked, atau sudah terverifikasi; tidak menyimpan email/signed URL pada storage browser.
 
@@ -384,11 +384,11 @@ Halaman kirim ulang publik berisi input email berlabel, tombol Kirim Ulang Email
 - Verifikasi email: Kirim Ulang Email dan Kembali ke Login disusun vertikal, rata kiri. Kelompok tautan dimulai 28 px setelah tombol Verifikasi Email, gap antartautan 12 px.
 - Kirim ulang: Kembali ke Login berada 28 px di bawah tombol Kirim Ulang Email, rata kiri.
 - Pusatkan styling auth di frontend/src/app/globals.css dengan selector berprefiks src-auth- untuk spacing dan layout; tidak menggunakan file auth-layout.css atau import CSS pada komponen auth; warna, font, ukuran kontrol, state error/loading/cooldown dan token Sunset existing tetap. Target sentuh minimum tetap 44 px pada perangkat sentuh.
-- URL masuk adalah /login, tanpa returnTo. Login berhasil selalu /beranda. Banner sesi aktif tetap menunggu aksi manual lanjut ke beranda; tidak menambahkan auto-login atau timer sukses.
+- URL masuk adalah /login, tanpa returnTo. Login berhasil selalu /beranda; loading bertahan sampai navigasi selesai tanpa banner atau aksi lanjut manual. Tidak ada auto-login atau timer sukses.
 
 #### Lupa dan reset password — 9 November 2026
 
-- Login menambahkan Lupa password? dekat field password dengan target sentuh minimum 44 px. Footer pendaftaran/verifikasi tetap 28 px setelah Masuk dengan gap baris 12 px; banner sesi aktif dan aksi manual lanjut ke beranda dipertahankan.
+- Login menambahkan Lupa password? dekat field password dengan target sentuh minimum 44 px. Footer pendaftaran/verifikasi tetap 28 px setelah Masuk dengan gap baris 12 px; alur masuk mengikuti transisi langsung ke beranda tanpa banner sesi aktif.
 - `/forgot-password`: judul Lupa password?, input Email berlabel, tombol Kirim Tautan Reset, dan Kembali ke Login. Loading Memproses permintaan…; respons generik “Jika alamat email memenuhi syarat, tautan reset password akan diproses. Periksa kotak masuk dan folder spam.” Jangan menyebut email terdaftar/tidak terdaftar atau menjanjikan sudah terkirim. Tombol Kirim ulang dalam N detik mengikuti cooldown server, termasuk rate limit. Input dipertahankan saat error.
 - `/reset-password`: pembacaan awal menampilkan Membaca tautan reset… sampai browser selesai membaca tautan, lalu judul Reset password, input Password baru dan Konfirmasi password baru, kontrol tampilkan/sembunyikan masing-masing, helper minimal 12 karakter, dan Simpan Password Baru. Izinkan paste/password manager; loading Menyimpan password… menonaktifkan submit. Error inline terhubung dengan input dan fokus ke field bermasalah setelah kontrol aktif kembali. Error jaringan menjelaskan hasil belum terkonfirmasi dan menawarkan login dengan password baru atau permintaan tautan baru; tidak mengulang submit otomatis.
 - Tautan hilang/invalid/expired/bekas memakai pesan aman “Tautan reset tidak tersedia, tidak valid, kedaluwarsa, atau sudah digunakan. Buka tautan dari email atau minta tautan reset baru.” Tampilkan Minta Tautan Reset Baru dan Kembali ke Login. Jangan tampilkan token atau identitas pemilik tautan.
@@ -728,3 +728,9 @@ Revisi tahap 7 — konfirmasi logout: dialog berjudul Keluar dari akun? dengan t
 | Versi | Tanggal | Perubahan |
 | --- | --- | --- |
 | 1.4 | 9 November 2026 | Melengkapi §11.1: tautan Lupa password? dekat field password, form publik lupa/reset, cooldown/error/pemulihan, dan sukses dengan login manual. Footer login, banner sesi aktif, palet Sunset, dan status Final dipertahankan. |
+
+### 20.5 Revisi transisi login
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.5 | 10 November 2026 | Pemilik produk menyetujui login langsung ke /beranda tanpa banner sesi aktif/aksi lanjut manual; Memeriksa akun… bertahan selama pemeriksaan dan perpindahan halaman. Ketentuan banner pada revisi sebelumnya digantikan; footer, palet Sunset, dan status Final dipertahankan. |

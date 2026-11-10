@@ -8,7 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FormField, PasswordInput } from "@/components/shared/form-field";
-import { Alert } from "@/components/shared/feedback";
+import { Alert, LoadingPanel } from "@/components/shared/feedback";
 import { useSession } from "@/providers/session-provider";
 import { normalizeApiError, type ApiError } from "@/lib/errors";
 import { loginSchema, type LoginValues } from "../schemas";
@@ -45,6 +45,7 @@ export function LoginForm() {
           form.setError(field, { message: parsed.fields[field][0] });
     }
   }
+  if (auth.transition === "login-redirect") return <LoadingPanel />;
   return (
     <div className="stack-large src-auth-root">
       <header>
@@ -52,15 +53,6 @@ export function LoginForm() {
         <h2 className="page-heading">Masuk ke sorerunapp</h2>
         <p className="muted">Kartu dan keanggotaan Anda, dalam satu tempat.</p>
       </header>
-      {auth.session && (
-        <Alert tone="info">
-          Anda sedang masuk sebagai {auth.session.user.full_name}.{" "}
-          <Link href={AUTH_NAVIGATION.afterLogin} className="text-link">
-            Lanjutkan ke akun Anda
-          </Link>{" "}
-          atau masuk dengan akun lain.
-        </Alert>
-      )}
       <form
         onSubmit={form.handleSubmit(submit)}
         noValidate
