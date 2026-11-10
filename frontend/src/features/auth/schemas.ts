@@ -89,3 +89,13 @@ export const registrationSchema = z
     message: "Konfirmasi password belum sesuai.",
   });
 export type RegistrationValues = z.infer<typeof registrationSchema>;
+
+export const forgotPasswordSchema = loginSchema.pick({ email: true });
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+export const resetPasswordSchema = z.object({
+  password: registrationSchema.shape.password,
+  password_confirmation: registrationSchema.shape.password_confirmation,
+}).refine((value) => value.password === value.password_confirmation, {
+  path: ["password_confirmation"], message: "Konfirmasi password belum sesuai.",
+});
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;

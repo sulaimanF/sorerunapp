@@ -17,9 +17,10 @@ import {
   logoutMember,
 } from "@/features/auth/services";
 import { verificationIntent } from "@/features/auth/verification-intent";
+import { passwordResetIntent } from "@/features/auth/password-reset-intent";
 import type { BrowserSession, LoginCredentials } from "@/features/auth/types";
 
-type Transition = "idle" | "login" | "logout" | "refresh" | "logout-check" | "logout-unknown";
+type Transition = "idle" | "login" | "login-redirect" | "logout" | "refresh" | "logout-check" | "logout-unknown";
 type SessionContextValue = {
   session: BrowserSession | null | undefined;
   loading: boolean;
@@ -28,6 +29,7 @@ type SessionContextValue = {
   transition: Transition;
   refresh: () => Promise<BrowserSession | null>;
   login: (credentials: LoginCredentials) => Promise<void>;
+  completeLogin: () => void;
   logout: () => Promise<void>;
 };
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -86,20 +88,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }
   async function login(credentials: LoginCredentials) {
     setTransition("login");
-    await clearPrivateQueries(client);
     try {
+      await clearPrivateQueries(client);
       const data = await loginMember(credentials);
       client.setQueryData(sessionKey, data);
+      setTransition("login-redirect");
       announce();
-    } finally {
+    } catch (error) {
       setTransition("idle");
+      throw error;
     }
   }
+  const completeLogin = useCallback(() => {
+    setTransition(current => current === "login-redirect" ? "idle" : current);
+  }, []);
   async function logout() {
     setTransition("logout");
     setRecoveryError(null);
     await clearPrivateQueries(client);
     verificationIntent.set(null);
+    passwordResetIntent.set(null);
     try {
       await logoutMember();
       setTransition("idle");
@@ -118,12 +126,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     <SessionContext
       value={{
         session: query.data,
-        loading: query.isPending,
+        loading: query.isPending || (query.isFetching && !query.data),
         error: query.error ? normalizeApiError(query.error) : null,
         recoveryError,
         transition,
         refresh,
         login,
+        completeLogin,
         logout,
       }}
     >

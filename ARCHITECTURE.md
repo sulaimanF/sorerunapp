@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.2 |
-| Tanggal | 25 Oktober 2026 |
+| Versi dokumen | 1.4 |
+| Tanggal | 10 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Acuan bisnis | PRD.md final, termasuk revisi versi teknologi |
@@ -206,7 +206,8 @@ CORS tidak menggunakan wildcard bersama credentials. Endpoint auth juga diberi r
 - Tamu yang membuka route privat, sesi berakhir, dan logout berhasil menuju /login. Semua login berhasil menuju /beranda. Tidak menyimpan/meneruskan halaman sebelumnya sebagai tujuan login.
 - Form login tidak membaca returnTo sebagai tujuan. Query/hash pada tautan login lama dibersihkan memakai history.replaceState setelah mount; destination tetap berasal dari konstanta internal.
 - Perpindahan menu saat sesi valid tetap ke halaman yang dipilih. Logout dan guard sesi memakai tujuan yang sama sehingga tidak saling menimpa dengan parameter halaman asal.
-- Banner sesi aktif/manual lanjut dipertahankan; tautan lanjut menuju /beranda. Hasil verifikasi, termasuk profil incomplete, menawarkan /login; profil dapat dilengkapi setelah masuk melalui navigasi anggota.
+- Login berhasil menyimpan sesi dan mempertahankan transisi `login-redirect` sampai beranda terbuka. Halaman login menampilkan loading selama navigasi, tanpa banner sesi aktif atau aksi lanjut manual. Jika /login dibuka dengan sesi existing, form tetap tersedia tanpa banner; tidak menambah auto-redirect saat sekadar membuka halaman. Hasil verifikasi, termasuk profil incomplete, menawarkan /login; profil dapat dilengkapi setelah masuk melalui navigasi anggota.
+- MemberShell menyelesaikan transisi login saat pathname /beranda aktif. Guard hanya bekerja pada route anggota aktif dan menunggu GET sesi yang masih berlangsung ketika data sesi kosong; data privat tetap disembunyikan sampai pemeriksaan selesai. Setelah hasil guest/penolakan pasti, guard tetap menuju /login.
 - HTTP auth/session, CSRF, pembersihan cache privat, email verified wajib, dan permission backend tetap berlaku. Gangguan jaringan tidak diperlakukan sebagai logout berhasil.
 
 ### 7.2 Izin
@@ -267,6 +268,14 @@ Prefix nomor masih detail branding yang belum ditentukan pada PRD. Gunakan konfi
 Perubahan email memerlukan autentikasi ulang password. Alamat lama tetap aktif; simpan alamat baru pada email_change_requests, token hash, kedaluwarsa, dan user version yang dituju. Verifikasi alamat baru mengunci membership/user, memeriksa uniqueness ulang dan konsumsi request dalam satu transaksi. Dua pengguna yang memverifikasi alamat sama tidak bisa mengambil satu email. Request lama dicabut saat mengganti tujuan; email lama tidak dapat memverifikasi email baru. Nomor member/QR tetap.
 
 Reset password menggunakan broker Laravel dengan respons publik generik, token sekali pakai dan rate limit. Perubahan password meningkatkan auth_version dan menghapus sessions terkait; middleware menolak session dengan auth_version lama termasuk session yang terlambat tersimpan. Reset tidak mengubah status membership atau membuka blokir akun.
+
+Broker `users` memakai database `password_reset_tokens`: expiry **60 menit sejak penerbitan**, throttle penerbitan **60 detik** (`config/auth.php`). Parameter ini terpisah dari TTL verifikasi email meskipun baseline angkanya sama. Recipient cooldown juga memeriksa delivery terakhir agar konsumsi/penghapusan token tidak melewati cooldown. Forgot/reset masing-masing dibatasi 5/menit/IP, 20/jam/IP, 5/jam/email ternormalisasi melalui cache existing tanpa lookup status akun. Forgot selalu 202 generik dan Retry-After 60 untuk payload valid, termasuk cooldown dan akun tidak dikenal; rate limit 429 mengikuti bucket server. Durasi minimum respons forgot 200 ms mengurangi perbedaan waktu sederhana, bukan jaminan constant-time.
+
+Penerbitan dan konsumsi mengunci baris user yang sama, kemudian record broker. Record hash ditambah `user_id` dan snapshot `auth_version` untuk mencegah perpindahan token saat email dialihkan ke akun lain atau setelah perubahan keamanan. Reset mengunci dan memeriksa binding, lalu memanggil broker `reset`; perubahan hash password/remember token, kenaikan versi, penghapusan sessions, pembatalan outbox reset lama, audit `auth.password_reset` actor NULL, dan penghapusan token oleh broker berada dalam transaksi yang sama (maksimal 3 percobaan deadlock). Tidak mengambil lock membership/credential atau mengubah status bisnis. Perubahan email/blokir tetap mengunci user dan menaikkan versi sesuai aturan existing. Link yang diterbitkan sebelum perubahan versi ditolak; permintaan baru oleh akun blocked boleh mereset password tanpa membuka blokir.
+
+Forgot memakai callback broker untuk membuat `notification_deliveries` type `password_reset` dalam transaksi penerbitan. Payload email/token/version dienkripsi dengan cast Laravel, hidden dari serialisasi; job hanya membawa ID dan dijadwalkan setelah commit. Worker/sweep existing memeriksa email/version/token broker saat mengirim, melepas semua lock sebelum SMTP, dan tidak pernah menerbitkan token saat retry. Payload dibersihkan pada sent/cancelled/attempt terakhir gagal; pending/failed/lease expired dipulihkan sweep existing. Race SMTP dengan konsumsi dapat mengirim tautan yang sudah invalid, tetapi tidak membuatnya berlaku lagi. Tidak menjanjikan exactly-once SMTP. Token expired dibersihkan scheduler `auth:clear-resets users` setiap jam.
+
+URL memakai origin `FRONTEND_URL` tervalidasi, `/reset-password#email=…&token=…`; tidak menerima destination dari request. Fragment dibaca hanya oleh browser, segera dihapus dari URL, dan disimpan sementara di memori form hingga keluar/reload/sukses, tanpa analytics/storage/query cache. GET tidak mengonsumsi token. POST publik tetap Sanctum stateful + CSRF, tidak memakai middleware login/verified. Sesudah sukses tidak login otomatis; refresh identitas browser mempertahankan akun lain yang sedang login. Error invalid/expired/bekas memakai satu pesan aman. Kontrak payload: `backend/docs/API_CONTRACT.md`, diindeks oleh `docs/API_CONTRACT.md`.
 
 ## 9. QR sebagai credential keanggotaan
 
@@ -464,14 +473,16 @@ Audit menyimpan perubahan status, kuota, penugasan, credential ID/revocation, ko
 | Tabel | Isi |
 | --- | --- |
 | email_change_requests | user_id, email tujuan, token_hash, user_version, expires_at, consumed_at/revoked_at |
-| notification_deliveries | id, user_id NULL, type, dedupe_key UNIQUE, status, attempt_count, available_at, lease_until, sent_at, provider_reference NULL, last_error_code NULL |
+| notification_deliveries | id, user_id NULL, type, dedupe_key UNIQUE, status, attempt_count, available_at, lease_until, sent_at, provider_reference NULL, last_error_code NULL; payload_encrypted TEXT NULL khusus proof reset sementara |
 | sessions | Session database Laravel; user_id, payload, last_activity; payload memuat auth_version |
-| password_reset_tokens | Tabel broker Laravel; token aman dan masa berlaku |
+| password_reset_tokens | Tabel broker Laravel; email PK, token hash, created_at; user_id nullable FK dan auth_version nullable sebagai binding penerima/versi; token tanpa binding tidak dapat dikonsumsi |
 | jobs / failed_jobs / job_batches bila digunakan | Infrastruktur queue Laravel |
 | cache / cache_locks | Driver cache database dan lock pekerjaan |
 | migrations | Versi schema |
 
 Notification menyimpan referensi penerima; alamat dan token verifikasi diselesaikan ketika mengirim, tidak diletakkan sebagai secret mentah dalam log. Pending change email mempunyai masa berlaku 60 menit pada baseline; pembersihan menghapus request lama yang tidak diperlukan. Expired reset token/session dibersihkan berkala.
+
+Khusus reset password, token dibuat oleh broker saat permintaan diterima dan proof outbox terenkripsi mengikuti lifecycle §8.3; worker tidak membuat token baru seperti pembentukan tautan verifikasi.
 
 ## 12. Kontrak HTTP awal
 
@@ -742,3 +753,11 @@ Pengujian wajib: login unverified tanpa sesi, password salah generik, penolakan 
 Dokumen tetap final. Navigasi autentikasi memakai /login dan /beranda tetap; penggunaan returnTo sebagai tujuan login dihapus. Pengujian mencakup root redirect, legacy query, session expiry, menu dengan sesi valid, logout dari profil, banner sesi aktif, dan verifikasi publik tanpa auto-login. Tidak ada perubahan API/schema/backend.
 
 Revisi tahap 7 — konfirmasi logout: dialog merupakan state UI frontend. POST /api/v1/auth/logout dan pembersihan cache privat existing hanya dipanggil setelah Ya, Keluar. Pembatalan tidak mengirim request logout. Sesi berakhir atau penolakan autentikasi oleh server tetap ditangani guard tanpa dialog. Tidak ada perubahan endpoint/database; kegagalan logout tetap memakai pemulihan sesi existing.
+
+## 23. Revisi pemulihan password 1.3 — 9 November 2026
+
+Melengkapi §8.3/11.7/12.2 untuk FR-03: broker database Laravel, binding token pada penerima/versi akun, konsumsi atomik dengan pencabutan sesi, proof outbox terenkripsi sementara, dan retry tanpa penerbitan ulang token. Kontrak payload dan operasi terdokumentasi pada API_CONTRACT/PASSWORD_RESET_STAGE08. Status dokumen tetap Final; stack, batas domain, dan aturan login tidak berubah.
+
+## 24. Revisi transisi login 1.4 — 10 November 2026
+
+Sesuai instruksi pemilik produk, banner sesi aktif dan tautan lanjut manual pada login digantikan alur submit → Memeriksa akun… → /beranda. Transisi tetap aktif sampai halaman tujuan terbuka; aturan ini menggantikan ketentuan banner pada revisi sebelumnya. Kegagalan login tetap mempertahankan form/error. Tidak ada perubahan API, database, CSRF, atau syarat enabled/verified. Status Final dipertahankan.

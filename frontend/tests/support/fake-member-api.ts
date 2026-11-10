@@ -21,6 +21,11 @@ type FakeState = {
   cardCount: number;
   csrf: string;
   cardDelay: number;
+  forgotCount: number;
+  resetCount: number;
+  passwordError: number;
+  passwordDelay: number;
+  passwordFieldsError: boolean;
 };
 export async function fixtureApi(
   context: BrowserContext,
@@ -39,6 +44,11 @@ export async function fixtureApi(
     cardCount: 0,
     csrf: "csrf-before-login+",
     cardDelay: 0,
+    forgotCount: 0,
+    resetCount: 0,
+    passwordError: 0,
+    passwordDelay: 0,
+    passwordFieldsError: false,
     ...initial,
   };
   const session = () => ({
@@ -111,6 +121,25 @@ export async function fixtureApi(
       request.headers()["x-xsrf-token"] !== state.csrf
     )
       return error(419, "CSRF_MISMATCH", "Sesi permintaan berubah.");
+    if (path === "/api/v1/auth/forgot-password" || path === "/api/v1/auth/reset-password") {
+      const forgot = path.endsWith("/forgot-password");
+      if (forgot) state.forgotCount++; else state.resetCount++;
+      expect(request.method()).toBe("POST");
+      if (state.passwordDelay) await new Promise((resolve) => setTimeout(resolve, state.passwordDelay));
+      if (state.passwordFieldsError) return respond(422, {
+        error: { code: "VALIDATION_FAILED", message: "Periksa kembali data yang Anda isi.", fields: {
+          password: ["Password ditolak oleh validasi server."], password_confirmation: ["Periksa konfirmasi password."],
+        } }, meta,
+      });
+      if (state.passwordError === -1) return route.abort("failed");
+      if (state.passwordError === 429) return error(429, "RATE_LIMITED", "Tunggu sebelum mencoba lagi.", { "Retry-After": "75" });
+      if (state.passwordError === 422) return error(422, "PASSWORD_RESET_INVALID", "Tautan reset tidak valid, kedaluwarsa, atau sudah digunakan.");
+      if (state.passwordError === 419) return error(419, "CSRF_MISMATCH", "Sesi permintaan berubah.");
+      if (!forgot) {
+        expect(request.postDataJSON()).toEqual({ email, token: "a".repeat(64), password: "New-test-password-123", password_confirmation: "New-test-password-123" });
+      }
+      return respond(forgot ? 202 : 200, { data: { result: forgot ? "password_reset_requested" : "password_reset" }, meta }, forgot ? { "Retry-After": "60" } : {});
+    }
     if (path === "/api/v1/auth/register") {
       const body = request.postDataJSON();
       expect(body.birth_date).toBe("2015-01-01");

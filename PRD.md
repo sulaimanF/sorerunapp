@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi | 1.2 |
-| Tanggal | 25 Oktober 2026 |
+| Versi | 1.4 |
+| Tanggal | 10 November 2026 |
 | Status | Final — disetujui pemilik produk sebagai acuan pengembangan sorerunapp |
 | Nama produk | sorerunapp — Sore Running Club (SRC) |
 | Bahasa aplikasi | Bahasa Indonesia |
@@ -347,6 +347,14 @@ Penangguhan tidak otomatis mencabut credential; QR yang sama dapat dipakai kemba
 
 Koreksi setelah event selesai hanya dilakukan admin. Riwayat member mencerminkan hasil terkini; pembatalan tidak dihitung sebagai kehadiran sah.
 
+### 9.11 BP-11 — Lupa dan reset password (FR-03)
+
+1. Pengguna membuka Lupa password dari login, mengisi email, lalu meminta tautan. Respons, metadata, dan cooldown publik sama untuk email dikenal/tidak dikenal serta akun enabled/blocked dan verified/unverified; respons hanya menyatakan permintaan akan diproses.
+2. Akun yang tersedia menerima tautan sekali pakai dengan masa berlaku terbatas. Membuka tautan hanya menampilkan form; penggantian memerlukan tombol Simpan Password Baru, password minimal 12 karakter, dan konfirmasi cocok.
+3. Reset berhasil mengakhiri semua sesi akun terkait dan meminta login manual. Dua konfirmasi paralel dengan token sama menghasilkan paling banyak satu reset berhasil. Token invalid, kedaluwarsa, sudah dipakai, atau tidak lagi sesuai identitas akun ditolak tanpa perubahan parsial.
+4. Reset tidak memverifikasi email, membuka blokir, mengaktifkan membership, atau mengubah nomor member/QR. Akun unverified/blocked dapat mengganti password tetapi tetap mengikuti pembatasan login existing. Sesi akun lain pada browser tidak diubah menjadi identitas penerima tautan.
+5. Pengiriman gagal dapat diulang oleh mekanisme delivery; retry tidak memperpanjang atau menghidupkan kembali token. UI menyediakan pemulihan berupa permintaan tautan baru, serta mengikuti cooldown server.
+
 ## 10. Requirement fungsional dan kriteria penerimaan
 
 Semua requirement P0 wajib untuk rilis MVP. P1 dapat ditambahkan setelah alur inti stabil. Kriteria pada tabel dilengkapi skenario lintas fitur pada Bagian 16.
@@ -522,7 +530,10 @@ Laporan membedakan registrasi pending, membership aktif, serta partisipasi. Keha
 | AC-24 | Tautan dibuka tanpa login | GET tidak mengubah data; POST konfirmasi dengan signature/expiry/email/version valid dan CSRF memverifikasi; respons publik tidak mengandung nomor member, profil, atau QR; setelah berhasil tetap perlu login |
 | AC-25 | Kirim ulang publik | Email tidak dikenal/sudah verified/blocked dan cooldown menerima respons generik sama; hanya akun pending yang eligible dijadwalkan; input invalid, CSRF, dan rate limit tetap diperiksa |
 | AC-26 | Navigasi login/logout | Root / menuju /login; tamu/sesi berakhir/logout menuju /login tanpa returnTo; semua login berhasil menuju /beranda, termasuk dari tautan login lama; parameter tujuan diabaikan dan dibersihkan |
-| AC-27 | Perpindahan menu | Sesi valid dapat berpindah beranda/profil/kartu tanpa login ulang; banner sesi aktif tetap menawarkan lanjut ke beranda |
+| AC-27 | Perpindahan menu | Sesi valid dapat berpindah beranda/profil/kartu tanpa login ulang; halaman login tidak menampilkan banner sesi aktif atau tautan lanjut manual; login berhasil langsung menuju beranda |
+| AC-28 | Permintaan reset publik | Respons email dikenal/tidak dikenal/blocked/unverified serta cooldown sama; CSRF, validasi, dan limit IP/email tetap diperiksa; antrean tidak diklaim sebagai email terkirim |
+| AC-29 | Reset valid dan paralel | Password baru berlaku; token hanya satu kali; seluruh sesi akun terkait termasuk sesi yang terlambat tersimpan ditolak; tanpa auto-login atau perubahan verifikasi/blokir/membership/nomor/QR |
+| AC-30 | Reset gagal atau email terlambat | Token invalid/expired/bekas, password pendek, atau konfirmasi berbeda tidak mengubah data; kegagalan transaksi tidak menyisakan perubahan parsial; retry email tidak menerbitkan token pengganti; sesi akun lain tetap miliknya |
 
 ## 17. Risiko dan mitigasi
 
@@ -642,5 +653,7 @@ Frontend berkomunikasi dengan Laravel API. Satu repository tidak mengharuskan ke
 | --- | --- | --- |
 | 1.1 | 24 Oktober 2026 | Verifikasi email wajib sebelum login; verifikasi publik dengan konfirmasi POST, resend publik generik, dan penolakan sesi lama unverified. Status dokumen tetap final. |
 | 1.2 | 25 Oktober 2026 | Tujuan login tetap beranda; URL login/logout/sesi berakhir bersih tanpa returnTo; navigasi anggota tetap memakai sesi aktif. Status final. |
+| 1.3 | 9 November 2026 | Melengkapi FR-03 melalui BP-11 dan AC-28–30 untuk pemulihan password publik, sesi, serta retry email. Status final. |
+| 1.4 | 10 November 2026 | Login berhasil langsung menuju beranda dengan loading selama transisi; banner sesi aktif dan aksi lanjut manual pada login dihapus sesuai instruksi pemilik produk. Status final. |
 
 Revisi tahap 7 — konfirmasi logout: klik tombol Keluar dari akun membuka dialog Ya, Keluar / Tidak. Hanya konfirmasi Ya, Keluar yang mengakhiri sesi. Tidak, Escape, atau menutup dialog mempertahankan sesi dan data anggota. Logout sukses menuju /login; penanganan kegagalan dan sesi berakhir tetap berlaku.

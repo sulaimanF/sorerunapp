@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Hidden(['dedupe_key', 'provider_reference', 'last_error_code'])]
+#[Hidden(['dedupe_key', 'provider_reference', 'last_error_code', 'payload_encrypted'])]
 class NotificationDelivery extends Model
 {
     protected $dateFormat = 'Y-m-d H:i:s.u';
@@ -23,6 +23,7 @@ class NotificationDelivery extends Model
     protected function casts(): array
     {
         return [
+            'payload_encrypted' => 'encrypted:array',
             'status' => NotificationDeliveryStatus::class,
             'attempt_count' => 'integer',
             'available_at' => 'immutable_datetime',

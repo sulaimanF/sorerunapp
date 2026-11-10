@@ -19,15 +19,20 @@ export function MemberShell({ children }: { children: ReactNode }) {
   const auth = useSession();
   const router = useRouter();
   const path = usePathname();
+  const completeLogin = auth.completeLogin;
+  useEffect(() => {
+    if (path === AUTH_NAVIGATION.afterLogin && auth.transition === "login-redirect") completeLogin();
+  }, [path, auth.transition, completeLogin]);
   useEffect(() => {
     if (
+      nav.some(item => item.href === path) &&
       !auth.loading &&
       !auth.error &&
       !auth.session &&
       auth.transition === "idle"
     )
       router.replace(AUTH_NAVIGATION.login);
-  }, [auth.loading, auth.error, auth.session, auth.transition, router]);
+  }, [path, auth.loading, auth.error, auth.session, auth.transition, router]);
   if (auth.error)
     return (
       <main className="recovery-panel stack-medium">

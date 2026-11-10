@@ -5,6 +5,8 @@ import { apiOrigin, registrationPolicies } from "@/lib/config";
 import { browserSessionSchema, type LoginCredentials } from "./types";
 import { birthDateToIso, type RegistrationValues } from "./schemas";
 import { verificationPath } from "./verification-intent";
+import type { PasswordResetIntent } from "./password-reset-intent";
+import type { ResetPasswordValues } from "./schemas";
 
 export async function currentMember(signal?: AbortSignal) {
   try {
@@ -45,6 +47,22 @@ export async function logoutMember() {
       502,
       "INVALID_RESPONSE",
     );
+}
+
+export async function requestPasswordReset(email: string) {
+  await initializeCsrf();
+  const response = await api.post("/api/v1/auth/forgot-password", { email });
+  if (response.status !== 202 || response.data?.data?.result !== "password_reset_requested")
+    throw new ApiError("Permintaan reset belum terkonfirmasi. Silakan coba lagi.", 502, "INVALID_RESPONSE");
+  const retryAfter = Number(response.headers["retry-after"]);
+  return Number.isFinite(retryAfter) ? Math.min(3600, Math.max(1, Math.ceil(retryAfter))) : 60;
+}
+
+export async function resetMemberPassword(intent: PasswordResetIntent, values: ResetPasswordValues) {
+  await initializeCsrf();
+  const response = await api.post("/api/v1/auth/reset-password", { ...intent, ...values });
+  if (response.status !== 200 || response.data?.data?.result !== "password_reset")
+    throw new ApiError("Hasil reset belum terkonfirmasi. Coba masuk dengan password baru atau minta tautan reset baru.", 502, "INVALID_RESPONSE");
 }
 export async function registerMember(values: RegistrationValues) {
   const birthDate = birthDateToIso(values.birth_date);

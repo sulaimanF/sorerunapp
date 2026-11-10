@@ -191,7 +191,7 @@ GET `/api/user` sekarang memakai guard yang sama dan BrowserSessionResource seba
 
 Stage 04 hanya membangun pemeriksaan marker pencabutan. Fitur reset password dan block admin berikutnya **wajib** menaikkan users.auth_version dan menghapus sessions user dalam transaksi/urutan lock yang ditetapkan. Membandingkan marker membuat row sesi lama yang terlambat ditulis tidak dapat digunakan setelah versi berubah. Test mensimulasikan replay row tersebut di MySQL test; perubahan auth_version bukan field publik.
 
-Endpoint reset password, block admin, dan pencabutan semua sesi oleh admin belum tersedia. Verifikasi email dan aktivasi tersedia pada tahap 05 di bawah. Tidak menandai status pending sebagai verified untuk menyelesaikan smoke test.
+Endpoint reset password tersedia pada tahap 08 di bawah; block admin dan pencabutan semua sesi oleh admin belum tersedia. Verifikasi email dan aktivasi tersedia pada tahap 05 di bawah. Tidak menandai status pending sebagai verified untuk menyelesaikan smoke test.
 
 ### Error sesi tambahan
 
@@ -297,3 +297,92 @@ Tambahan `GET /api/v1/me/profile` dan `PATCH /api/v1/me/profile` menggunakan ses
 ## Revisi email-first — 24 Oktober 2026
 
 Login wajib enabled + verified. GET signed URL read-only. POST signed URL + CSRF + JSON {} memverifikasi tanpa login/auto-login. Response publik hanya result dan meta; tanpa identitas, nomor, atau QR. Resend publik menerima email dengan respons generik dan cooldown. Rincian dan pengujian: ../../docs/API_EMAIL_FIRST.md dan ../../docs/PANDUAN_EMAIL_FIRST.md.
+
+## Lupa dan reset password — tahap 08, 9 November 2026
+
+`POST /api/v1/auth/forgot-password` dan `POST /api/v1/auth/reset-password` adalah endpoint **publik**, tanpa syarat login/email verified. Tetap wajib origin stateful tepercaya, session cookie dan CSRF: GET `/sanctum/csrf-cookie`, lalu POST dengan credentials dan `X-XSRF-TOKEN`. Origin tak dikenal atau CSRF tidak sesuai menghasilkan 419, bukan fallback bearer/stateless. GET pada kedua endpoint API menghasilkan 405; GET `/reset-password` di frontend hanya menampilkan form.
+
+`Accept: application/json`, `Content-Type: application/json`. Body objek JSON maksimal 4.096 byte, kedalaman parse 8. Query string dan field di luar whitelist ditolak 422. Email dinormalisasi trim/lowercase tanpa menghapus alias titik/plus, RFC email maksimal 254 karakter.
+
+### Permintaan tautan
+
+```json
+{ "email": "anggota@example.test" }
+```
+
+Payload valid selalu menerima **202**, `Cache-Control: no-store`, `Retry-After: 60`, terlepas dari keberadaan/status akun atau cooldown penerima. Error validasi/CSRF/rate limit tetap berlaku sebelum lookup akun. Tidak ada ID akun/status/metadata cooldown per penerima yang dikembalikan.
+
+```json
+{
+  "data": { "result": "password_reset_requested" },
+  "meta": { "request_id": "d6578996-20ac-4d4e-ab72-ef8d187fe122" }
+}
+```
+
+Receipt bukan bukti email terkirim. Frontend menampilkan: “Jika alamat email memenuhi syarat, tautan reset password akan diproses. Periksa kotak masuk dan folder spam.” Akun blocked/unverified dapat menerima reset tetapi tidak berubah status; akun tidak dikenal tidak membuat token atau outbox. Broker users sudah memakai expiry 60 menit dan throttle 60 detik; delivery terakhir juga membatasi cooldown setelah token dikonsumsi. Permintaan baru setelah cooldown menggantikan token lama.
+
+### Simpan password baru
+
+| Field | Ketentuan |
+| --- | --- |
+| email | Email dari tautan, mengikuti normalisasi di atas |
+| token | Proof broker, 64 digit hex lowercase; wajib dikirim hanya di body POST |
+| password | Minimal 12 karakter, maksimum 72 byte UTF-8 sesuai bcrypt existing; tanpa null byte, spasi dipertahankan |
+| password_confirmation | Wajib sama dengan password |
+
+Contoh berikut menggunakan placeholder, bukan secret yang valid:
+
+```json
+{
+  "email": "anggota@example.test",
+  "token": "<64-digit-hex-dari-tautan-email>",
+  "password": "<password-baru-minimal-12-karakter>",
+  "password_confirmation": "<nilai-yang-sama>"
+}
+```
+
+Sukses **200**, no-store:
+
+```json
+{
+  "data": { "result": "password_reset" },
+  "meta": { "request_id": "d6578996-20ac-4d4e-ab72-ef8d187fe122" }
+}
+```
+
+Reset mengubah password dan remember token, menaikkan auth_version, menghapus semua session akun terkait, mengonsumsi token, membatalkan pending reset delivery, serta membuat audit tanpa password/proof. Semua atomik dalam transaksi dengan user/token row lock. Request paralel token sama menghasilkan paling banyak satu 200; lainnya 422. Sesi yang terlambat tersimpan dengan versi lama ditolak pada akses privat berikutnya. Tidak ada auto-login, perubahan email verification/blokir/membership/member number/QR, atau perubahan identitas sesi akun lain.
+
+### Error dan limit
+
+Kedua endpoint mempunyai bucket terpisah: **5/menit/IP, 20/jam/IP, 5/jam/email ternormalisasi**. Key menggunakan hash dan cache existing, tanpa pemeriksaan keberadaan akun. 429 memiliki `Retry-After` sisa bucket server; frontend mengikuti nilai ini, bukan cooldown hardcoded. Tidak melakukan retry mutation otomatis setelah timeout/419. Timeout reset bisa berarti commit sudah terjadi; UI menawarkan login dengan password baru atau tautan baru.
+
+| HTTP | Code | Keadaan |
+| --- | --- | --- |
+| 400 | INVALID_JSON | JSON rusak/nonobjek/terlalu dalam |
+| 405 | METHOD_NOT_ALLOWED | GET/metode selain POST |
+| 413 | PAYLOAD_TOO_LARGE | Body melewati batas |
+| 415 | UNSUPPORTED_MEDIA_TYPE | Bukan JSON |
+| 419 | CSRF_MISMATCH | Origin/session/CSRF tidak sesuai |
+| 422 | VALIDATION_FAILED | Field/konfirmasi/password/token format tidak valid, query atau field tambahan |
+| 422 | PASSWORD_RESET_INVALID | Email/token tidak cocok, expired, bekas, binding user/version stale |
+| 429 | RATE_LIMITED | Bucket IP/email tercapai, Retry-After tersedia |
+| 500/503 | SERVER_ERROR / SERVICE_UNAVAILABLE | Kegagalan server/database tersanitasi, tanpa sukses palsu |
+
+```json
+{
+  "error": {
+    "code": "PASSWORD_RESET_INVALID",
+    "message": "Tautan reset tidak valid, kedaluwarsa, atau sudah digunakan. Minta tautan reset baru.",
+    "fields": {}
+  },
+  "meta": { "request_id": "d6578996-20ac-4d4e-ab72-ef8d187fe122" }
+}
+```
+
+`meta.request_id` dan `X-Request-ID` mengikuti envelope existing. Input invalid tidak mengonsumsi token; kegagalan transaksi tidak meninggalkan perubahan parsial. Password dan token tidak ditulis ke log/audit/analytics/storage browser.
+
+### Email dan pemulihan delivery
+
+Outbox `password_reset` menyimpan proof terenkripsi sementara, bukan token mentah pada job. Callback broker membuat hash/token binding dan outbox dalam satu transaksi; dispatch hanya setelah commit. Job existing dan sweep pending memulihkan kegagalan dispatch. Worker memeriksa email/version/token masih current lalu mengirim SMTP di luar row lock. Retry menggunakan token dan expiry awal; consumed/replaced/expired/stale delivery dibatalkan, tidak menerbitkan ulang token. Payload dibersihkan saat sent/cancelled/final failure. SMTP masih dapat menerima duplikasi jika worker crash setelah provider menerima email.
+
+Tautan hanya berasal dari `FRONTEND_URL` tepercaya dengan path `/reset-password` dan fragment email/token; URL tujuan bebas ditolak. Browser menghapus fragment setelah parsing dan menyimpan proof hanya selama form terbuka. Konfigurasi/operasi dan batas pengujian: [PASSWORD_RESET_STAGE08.md](../../docs/PASSWORD_RESET_STAGE08.md).
