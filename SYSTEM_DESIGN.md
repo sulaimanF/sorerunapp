@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.3 |
-| Tanggal | 25 Oktober 2026 |
+| Versi dokumen | 1.4 |
+| Tanggal | 9 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Jenis dokumen | Design system visual dan pedoman UI/UX |
@@ -386,6 +386,15 @@ Halaman kirim ulang publik berisi input email berlabel, tombol Kirim Ulang Email
 - Pusatkan styling auth di frontend/src/app/globals.css dengan selector berprefiks src-auth- untuk spacing dan layout; tidak menggunakan file auth-layout.css atau import CSS pada komponen auth; warna, font, ukuran kontrol, state error/loading/cooldown dan token Sunset existing tetap. Target sentuh minimum tetap 44 px pada perangkat sentuh.
 - URL masuk adalah /login, tanpa returnTo. Login berhasil selalu /beranda. Banner sesi aktif tetap menunggu aksi manual lanjut ke beranda; tidak menambahkan auto-login atau timer sukses.
 
+#### Lupa dan reset password — 9 November 2026
+
+- Login menambahkan Lupa password? dekat field password dengan target sentuh minimum 44 px. Footer pendaftaran/verifikasi tetap 28 px setelah Masuk dengan gap baris 12 px; banner sesi aktif dan aksi manual lanjut ke beranda dipertahankan.
+- `/forgot-password`: judul Lupa password?, input Email berlabel, tombol Kirim Tautan Reset, dan Kembali ke Login. Loading Memproses permintaan…; respons generik “Jika alamat email memenuhi syarat, tautan reset password akan diproses. Periksa kotak masuk dan folder spam.” Jangan menyebut email terdaftar/tidak terdaftar atau menjanjikan sudah terkirim. Tombol Kirim ulang dalam N detik mengikuti cooldown server, termasuk rate limit. Input dipertahankan saat error.
+- `/reset-password`: pembacaan awal menampilkan Membaca tautan reset… sampai browser selesai membaca tautan, lalu judul Reset password, input Password baru dan Konfirmasi password baru, kontrol tampilkan/sembunyikan masing-masing, helper minimal 12 karakter, dan Simpan Password Baru. Izinkan paste/password manager; loading Menyimpan password… menonaktifkan submit. Error inline terhubung dengan input dan fokus ke field bermasalah setelah kontrol aktif kembali. Error jaringan menjelaskan hasil belum terkonfirmasi dan menawarkan login dengan password baru atau permintaan tautan baru; tidak mengulang submit otomatis.
+- Tautan hilang/invalid/expired/bekas memakai pesan aman “Tautan reset tidak tersedia, tidak valid, kedaluwarsa, atau sudah digunakan. Buka tautan dari email atau minta tautan reset baru.” Tampilkan Minta Tautan Reset Baru dan Kembali ke Login. Jangan tampilkan token atau identitas pemilik tautan.
+- Sukses: judul Password berhasil diperbarui mendapat fokus, konfirmasi semua sesi akun terkait diakhiri, tombol Masuk ke Akun menuju `/login`. Tanpa auto-login, redirect sukses, countdown sukses, atau returnTo. Jika browser memiliki sesi akun lain, jangan mengganti identitasnya.
+- Kedua halaman mengikuti shell auth, palet Sunset, Plus Jakarta Sans, semantic token, dan selector `src-auth-` dalam globals.css. Bantuan tautan disusun vertikal seperti kirim ulang existing; kontrol minimum 44 px, fokus terlihat, alert terumumkan, reflow 320 px tanpa overflow.
+
 ### 11.2 Beranda member
 
 Urutan konten: sapaan/nama → status keanggotaan → akses Kartu Anggota → event terdekat → riwayat singkat. Tanggal kegiatan dan lokasi lebih menonjol daripada dekorasi. Ringkasan aktivitas menunjukkan jumlah event yang benar-benar dihadiri, bukan jarak/pace yang belum dicatat sistem.
@@ -713,3 +722,9 @@ Revisi 1.1 tetap berstatus final dan menggantikan palet merek sebelumnya. Status
 | 1.3 | 25 Oktober 2026 | Preview susunan tiga halaman auth disetujui dan diterapkan; jarak 28 px setelah tombol, tautan login/footer tersusun sesuai rancangan, navigasi tanpa returnTo. Palet Sunset dan status final tetap. |
 
 Revisi tahap 7 — konfirmasi logout: dialog berjudul Keluar dari akun? dengan teks Apakah Anda ingin logout dari sorerunapp?, tombol Tidak (outline, fokus awal) dan Ya, Keluar (primary Sunset). Escape/penutupan membatalkan dan mengembalikan fokus ke pemicu. Fokus terkurung di dialog; layout responsif 320 px, target tombol minimum 44 px. Styling terpusat di frontend/src/app/globals.css. Proses dan pemulihan logout memakai state existing.
+
+### 20.4 Revisi pemulihan password
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.4 | 9 November 2026 | Melengkapi §11.1: tautan Lupa password? dekat field password, form publik lupa/reset, cooldown/error/pemulihan, dan sukses dengan login manual. Footer login, banner sesi aktif, palet Sunset, dan status Final dipertahankan. |

@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\CurrentMemberController;
+use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\LoginMemberController;
 use App\Http\Controllers\Api\V1\Auth\LogoutMemberController;
 use App\Http\Controllers\Api\V1\Auth\RegisterMemberController;
 use App\Http\Controllers\Api\V1\Auth\ResendVerificationEmailController;
+use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\V1\Members\ShowMemberProfileController;
 use App\Http\Controllers\Api\V1\Members\UpdateMemberProfileController;
 use App\Http\Controllers\Api\V1\Memberships\MembershipCardController;
@@ -19,6 +21,11 @@ Route::get('/user', CurrentMemberController::class)
     ->middleware([RequireBrowserSession::class, 'auth:sanctum', EnsureCurrentBrowserSession::class]);
 
 Route::prefix('v1')->group(function (): void {
+    Route::post('/auth/forgot-password', ForgotPasswordController::class)
+        ->middleware([RequireStatefulRegistration::class, 'throttle:password-forgot'])->name('api.v1.auth.forgot-password');
+    Route::post('/auth/reset-password', ResetPasswordController::class)
+        ->middleware([RequireStatefulRegistration::class, 'throttle:password-reset'])->name('api.v1.auth.reset-password');
+
     Route::post('/auth/register', RegisterMemberController::class)
         ->middleware([RequireStatefulRegistration::class, 'throttle:registration'])
         ->name('api.v1.auth.register');

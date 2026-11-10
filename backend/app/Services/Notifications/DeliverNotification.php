@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Notifications\MembershipActivated;
 use App\Notifications\VerifyMembershipEmail;
 use App\Services\Auth\EmailVerificationUrl;
+use App\Services\Auth\PasswordResetNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +38,7 @@ class DeliverNotification
         }
         $delivery = NotificationDelivery::query()->find($id);
         $user = $delivery?->user_id === null ? null : User::query()->find($delivery->user_id);
-        if ($user === null || $user->status !== AccountStatus::Enabled) {
+        if ($user === null || ($delivery->type !== 'password_reset' && $user->status !== AccountStatus::Enabled)) {
             $this->cancel($claim, 'RECIPIENT_UNAVAILABLE');
 
             return;
@@ -54,7 +55,7 @@ class DeliverNotification
 
                 return;
             }
-        } else {
+        } elseif ($delivery->type !== 'password_reset') {
             $this->cancel($claim, 'UNSUPPORTED_NOTIFICATION_TYPE');
 
             return;
@@ -66,9 +67,16 @@ class DeliverNotification
             return;
         }
         try {
-            $notification = $delivery->type === 'email_verification'
-                ? new VerifyMembershipEmail(app(EmailVerificationUrl::class)->forBrowser($user))
-                : new MembershipActivated((string) $user->membership->member_number);
+            $notification = match ($delivery->type) {
+                'password_reset' => app(PasswordResetNotification::class)->forDelivery($delivery, $user),
+                'email_verification' => new VerifyMembershipEmail(app(EmailVerificationUrl::class)->forBrowser($user)),
+                default => new MembershipActivated((string) $user->membership->member_number),
+            };
+            if ($notification === null) {
+                $this->cancel($claim, 'PASSWORD_RESET_NOT_CURRENT');
+
+                return;
+            }
             Notification::sendNow($user, $notification);
         } catch (Throwable) {
             // Never persist provider exception text, email, signed URL, or transport credentials.
@@ -95,7 +103,7 @@ class DeliverNotification
                 return null;
             }
             if ($delivery->attempt_count >= self::MAX_ATTEMPTS) {
-                $delivery->forceFill(['status' => NotificationDeliveryStatus::Failed, 'lease_until' => null, 'last_error_code' => 'ATTEMPTS_EXHAUSTED'])->save();
+                $delivery->forceFill(['status' => NotificationDeliveryStatus::Failed, 'lease_until' => null, 'last_error_code' => 'ATTEMPTS_EXHAUSTED', 'payload_encrypted' => null])->save();
 
                 return null;
             }
@@ -113,22 +121,26 @@ class DeliverNotification
     {
         $this->fence($claim)->update([
             'status' => NotificationDeliveryStatus::Sent->value, 'sent_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'),
-            'lease_until' => null, 'last_error_code' => null,
+            'lease_until' => null, 'last_error_code' => null, 'payload_encrypted' => null,
         ]);
     }
 
     public function fail(DeliveryClaim $claim, string $code): void
     {
         $delay = [60, 300, 900, 3600, 3600][min(max($claim->attempt - 1, 0), 4)];
-        $this->fence($claim)->update([
+        $changes = [
             'status' => NotificationDeliveryStatus::Failed->value, 'lease_until' => null, 'last_error_code' => $code,
             'available_at' => CarbonImmutable::now('UTC')->addSeconds($delay)->format('Y-m-d H:i:s.u'),
-        ]);
+        ];
+        if ($claim->attempt >= self::MAX_ATTEMPTS) {
+            $changes['payload_encrypted'] = null;
+        }
+        $this->fence($claim)->update($changes);
     }
 
     public function cancel(DeliveryClaim $claim, string $code): void
     {
-        $this->fence($claim)->update(['status' => NotificationDeliveryStatus::Cancelled->value, 'lease_until' => null, 'last_error_code' => $code]);
+        $this->fence($claim)->update(['status' => NotificationDeliveryStatus::Cancelled->value, 'lease_until' => null, 'last_error_code' => $code, 'payload_encrypted' => null]);
     }
 
     private function fence(DeliveryClaim $claim): Builder

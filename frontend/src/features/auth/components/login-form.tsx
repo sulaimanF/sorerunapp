@@ -113,6 +113,7 @@ export function LoginForm() {
             {...form.register("password")}
           />
         </FormField>
+        <Link href="/forgot-password" className="text-link src-auth-forgot-link">Lupa password?</Link>
         <Button
           type="submit"
           disabled={form.formState.isSubmitting || countdown.remaining > 0}

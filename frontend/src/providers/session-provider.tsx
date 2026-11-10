@@ -17,6 +17,7 @@ import {
   logoutMember,
 } from "@/features/auth/services";
 import { verificationIntent } from "@/features/auth/verification-intent";
+import { passwordResetIntent } from "@/features/auth/password-reset-intent";
 import type { BrowserSession, LoginCredentials } from "@/features/auth/types";
 
 type Transition = "idle" | "login" | "logout" | "refresh" | "logout-check" | "logout-unknown";
@@ -100,6 +101,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setRecoveryError(null);
     await clearPrivateQueries(client);
     verificationIntent.set(null);
+    passwordResetIntent.set(null);
     try {
       await logoutMember();
       setTransition("idle");

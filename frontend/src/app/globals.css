@@ -1054,6 +1054,13 @@ input[type="checkbox"][aria-invalid="true"] {
 }
 /* END: SRC auth layout */
 
+.src-auth-forgot-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+}
+
 /* BEGIN: SRC stage07 logout confirmation */
 .logout-confirmation-actions {
   display: flex;
