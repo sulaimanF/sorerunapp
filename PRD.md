@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi | 1.4 |
-| Tanggal | 10 November 2026 |
+| Versi | 1.5 |
+| Tanggal | 11 November 2026 |
 | Status | Final — disetujui pemilik produk sebagai acuan pengembangan sorerunapp |
 | Nama produk | sorerunapp — Sore Running Club (SRC) |
 | Bahasa aplikasi | Bahasa Indonesia |
@@ -520,7 +520,7 @@ Laporan membedakan registrasi pending, membership aktif, serta partisipasi. Keha
 | AC-14 | Check-in tepat sebelum buka atau tepat pada waktu tutup | Ditolak berdasarkan waktu server dan batas interval |
 | AC-15 | Event dibatalkan/diselesaikan | Tidak ada check-in baru; sejarah tidak dihapus |
 | AC-16 | Kehadiran dibatalkan lalu QR discan ulang | Tidak dipulihkan otomatis; admin harus melakukan koreksi dengan audit |
-| AC-17 | Email aktif diganti | Alamat lama berlaku sampai verifikasi baru; nomor/QR tetap; tautan lama tidak memverifikasi email lain |
+| AC-17 | Email aktif diganti | Alamat lama berlaku sampai verifikasi baru; nomor/QR tetap; tautan lama tidak memverifikasi email lain. Permintaan memerlukan password akun saat ini. Konfirmasi berhasil mengakhiri seluruh sesi dan pengguna masuk kembali menggunakan email baru; tanpa auto-login. |
 | AC-18 | Member meminta profil/riwayat member lain | Ditolak atau tidak ditemukan sesuai kebijakan API, tanpa kebocoran data |
 | AC-19 | Admin mengganti QR bersamaan | Hanya satu credential akhir aktif |
 | AC-20 | Koreksi dan ekspor laporan | Total hanya attendance valid; koreksi/ekspor tercatat; CSV aman dari formula input |
@@ -655,5 +655,6 @@ Frontend berkomunikasi dengan Laravel API. Satu repository tidak mengharuskan ke
 | 1.2 | 25 Oktober 2026 | Tujuan login tetap beranda; URL login/logout/sesi berakhir bersih tanpa returnTo; navigasi anggota tetap memakai sesi aktif. Status final. |
 | 1.3 | 9 November 2026 | Melengkapi FR-03 melalui BP-11 dan AC-28–30 untuk pemulihan password publik, sesi, serta retry email. Status final. |
 | 1.4 | 10 November 2026 | Login berhasil langsung menuju beranda dengan loading selama transisi; banner sesi aktif dan aksi lanjut manual pada login dihapus sesuai instruksi pemilik produk. Status final. |
+| 1.5 | 11 November 2026 | Melengkapi AC-17 pada FR-04 sesuai persetujuan pemilik produk: konfirmasi perubahan email mencabut seluruh sesi dan memerlukan login ulang dengan email baru. BR-16/BR-17 dan status Final dipertahankan. |
 
 Revisi tahap 7 — konfirmasi logout: klik tombol Keluar dari akun membuka dialog Ya, Keluar / Tidak. Hanya konfirmasi Ya, Keluar yang mengakhiri sesi. Tidak, Escape, atau menutup dialog mempertahankan sesi dan data anggota. Logout sukses menuju /login; penanganan kegagalan dan sesi berakhir tetap berlaku.

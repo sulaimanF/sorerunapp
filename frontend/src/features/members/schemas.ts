@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { birthDateToIso, registrationSchema } from "../auth/schemas";
+import { birthDateToIso, registrationSchema, emailChangeStatusSchema } from "../auth/schemas";
 
 export const profileSchema = z.object({
   full_name: registrationSchema.shape.full_name,
@@ -18,6 +18,7 @@ export const memberProfileSchema = z.object({
   gender: z.string().nullable(),
   profile_complete: z.boolean(),
   updated_at: z.string().datetime({ offset: true }).nullable(),
+  email_change: emailChangeStatusSchema.nullable(),
 });
 export type MemberProfile = z.infer<typeof memberProfileSchema>;
 

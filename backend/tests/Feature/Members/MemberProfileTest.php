@@ -91,7 +91,8 @@ final class MemberProfileTest extends TestCase
         $response->assertJsonPath('data.full_name', $owner->memberProfile->full_name)
             ->assertJsonPath('data.birth_date', '2000-01-01');
         self::assertStringNotContainsString('Profil Orang Lain', $response->getContent());
-        self::assertSame(['full_name', 'birth_date', 'phone', 'city', 'gender', 'profile_complete', 'updated_at'], array_keys($response->json('data')));
+        self::assertSame(['full_name', 'birth_date', 'phone', 'city', 'gender', 'profile_complete', 'updated_at', 'email_change'], array_keys($response->json('data')));
+        $response->assertJsonPath('data.email_change.active_email', $owner->email)->assertJsonPath('data.email_change.pending', null);
         self::assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         self::assertSame($response->json('meta.request_id'), $response->headers->get('X-Request-ID'));
         self::assertFalse(Gate::forUser($other)->allows('update', $owner->memberProfile));

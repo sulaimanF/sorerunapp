@@ -28,7 +28,13 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next/stage09-browser/types/**/*.ts",
+    ".next/stage09-browser/dev/types/**/*.ts",
+    ".next/stage09-live/types/**/*.ts",
+    ".next/stage09-live/dev/types/**/*.ts",
+    ".next/stage09-build/types/**/*.ts",
+    ".next/stage09-build/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

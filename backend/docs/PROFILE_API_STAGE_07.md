@@ -15,13 +15,18 @@ Mengambil biodata pengguna yang login, bukan berdasarkan ID dari client. Query `
     "city": "Kota Uji",
     "gender": null,
     "profile_complete": true,
-    "updated_at": "2026-10-24T00:00:00Z"
+    "updated_at": "2026-10-24T00:00:00Z",
+    "email_change": {
+      "active_email": "anggota@example.test",
+      "retry_after": 0,
+      "pending": null
+    }
   },
   "meta": { "request_id": "c9340265-31f2-4f5c-a951-7631bf8b2c44" }
 }
 ```
 
-Tidak mengirim ID user/profil lain, role, auth_version, email, password, path foto, token, atau QR melalui resource ini. Email/status akun tetap berasal dari `/auth/me`.
+Tidak mengirim ID user/profil lain, role, auth_version, password, path foto, token, atau QR melalui resource ini. Sejak tahap 09, whitelist `email_change` menyediakan email aktif, pending/expired, expiry dan sisa cooldown untuk pemilik; status akun tetap dari `/auth/me`. Kontrak perubahan email lengkap berada di [API_CONTRACT.md](API_CONTRACT.md), tanpa menambahkan field edit akun ke PATCH profil.
 
 ## PATCH /me/profile
 

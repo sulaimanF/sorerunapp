@@ -24,6 +24,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NEXT_TELEMETRY_DISABLED: "1",
+      SORERUNAPP_TEST_OUTPUT: "browser",
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
       NEXT_PUBLIC_PRIVACY_NOTICE_VERSION: "dev-v1",
       NEXT_PUBLIC_TERMS_VERSION: "dev-v1",

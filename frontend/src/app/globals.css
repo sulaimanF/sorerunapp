@@ -1073,3 +1073,26 @@ input[type="checkbox"][aria-invalid="true"] {
   min-width: 0;
 }
 /* END: SRC stage07 logout confirmation */
+
+.src-auth-email-change {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.src-auth-email-change fieldset {
+  min-width: 0;
+}
+
+.src-auth-email-change .button {
+  min-height: 44px;
+  white-space: normal;
+}
+
+.src-auth-email-change > .button {
+  margin-inline-end: 0.75rem;
+}
+
+.src-auth-email-change > .button:last-child {
+  margin-top: 0.75rem;
+  margin-inline-end: 0;
+}

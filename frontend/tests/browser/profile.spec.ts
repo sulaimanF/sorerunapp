@@ -24,7 +24,7 @@ async function fixture(context: BrowserContext) {
     holdPatch: Promise<void> | null;
   } = {
     loggedIn: true, ownerId: 42, email: "profile-stage07@example.test", active: true, verified: true,
-    profile: { full_name: initialName, birth_date: "2012-02-29", phone: "+6281234567890", city: "Kota Uji", gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z" },
+    profile: { full_name: initialName, birth_date: "2012-02-29", phone: "+6281234567890", city: "Kota Uji", gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z", email_change: { active_email: "profile-stage07@example.test", retry_after: 0, pending: null } },
     patches: 0, completed: 0, reads: 0, readFails: false, validationFails: false, expireOnSave: false,
     unverifyOnSave: false, commitThenDisconnect: false, holdPatch: null,
   };

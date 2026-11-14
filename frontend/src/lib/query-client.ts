@@ -3,10 +3,19 @@ import { isSessionRejection } from "./errors";
 
 export const sessionKey = ["auth", "session"] as const;
 
-export async function clearPrivateQueries(client: QueryClient) {
+export async function clearPrivateQueries(client: QueryClient, expectedUserId?: number) {
+  if (expectedUserId !== undefined) {
+    const current = client.getQueryData<{ user: { id: number } } | null>(sessionKey);
+    if (current && current.user.id !== expectedUserId) return false;
+  }
   await client.cancelQueries();
+  if (expectedUserId !== undefined) {
+    const current = client.getQueryData<{ user: { id: number } } | null>(sessionKey);
+    if (current && current.user.id !== expectedUserId) return false;
+  }
   client.removeQueries({ predicate: (query) => query.queryKey[0] !== "auth" });
   client.setQueryData(sessionKey, null);
+  return true;
 }
 
 export function createQueryClient(): QueryClient {

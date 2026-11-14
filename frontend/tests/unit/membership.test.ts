@@ -194,3 +194,17 @@ test("late private query responses cannot refill cache after account switch", as
   assert.equal(client.getQueryData(["membership", "card", 1]), undefined);
   client.clear();
 });
+
+test("email change cleanup never clears another account, including a switch during cancellation", async () => {
+  const client = createQueryClient();
+  client.setQueryData(sessionKey, { user: { id: 2 } });
+  client.setQueryData(["members", "profile", 2], { full_name: "Other synthetic member" });
+  assert.equal(await clearPrivateQueries(client, 1), false);
+  assert.deepEqual(client.getQueryData(sessionKey), { user: { id: 2 } });
+  client.setQueryData(sessionKey, { user: { id: 1 } });
+  const cleaning = clearPrivateQueries(client, 1);
+  client.setQueryData(sessionKey, { user: { id: 2 } });
+  assert.equal(await cleaning, false);
+  assert.deepEqual(client.getQueryData(["members", "profile", 2]), { full_name: "Other synthetic member" });
+  client.clear();
+});

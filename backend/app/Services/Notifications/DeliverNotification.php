@@ -12,6 +12,7 @@ use App\Models\NotificationDelivery;
 use App\Models\User;
 use App\Notifications\MembershipActivated;
 use App\Notifications\VerifyMembershipEmail;
+use App\Services\Auth\EmailChangeNotification;
 use App\Services\Auth\EmailVerificationUrl;
 use App\Services\Auth\PasswordResetNotification;
 use Carbon\CarbonImmutable;
@@ -55,7 +56,7 @@ class DeliverNotification
 
                 return;
             }
-        } elseif ($delivery->type !== 'password_reset') {
+        } elseif (! in_array($delivery->type, ['password_reset', 'email_change'], true)) {
             $this->cancel($claim, 'UNSUPPORTED_NOTIFICATION_TYPE');
 
             return;
@@ -67,6 +68,21 @@ class DeliverNotification
             return;
         }
         try {
+            if ($delivery->type === 'email_change') {
+                $service = app(EmailChangeNotification::class);
+                $change = $user->email_verified_at === null ? null : $service->currentRequest($delivery, $user);
+                if ($change === null) {
+                    $this->cancel($claim, 'EMAIL_CHANGE_NOT_CURRENT');
+
+                    return;
+                }
+                // A pending address is never substituted on the authenticated User model.
+                // SMTP runs after releasing the claim lock; retries reuse the original proof.
+                Notification::route('mail', $change->new_email)->notifyNow($service->notification($change, $delivery->payload_encrypted['token']));
+                $this->sent($claim);
+
+                return;
+            }
             $notification = match ($delivery->type) {
                 'password_reset' => app(PasswordResetNotification::class)->forDelivery($delivery, $user),
                 'email_verification' => new VerifyMembershipEmail(app(EmailVerificationUrl::class)->forBrowser($user)),

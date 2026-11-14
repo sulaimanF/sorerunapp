@@ -22,6 +22,25 @@ class AppServiceProvider extends ServiceProvider
         config(['mail.mailers.smtp.timeout' => 15]);
         Gate::policy(MemberProfile::class, MemberProfilePolicy::class);
 
+        foreach (['email-change', 'email-change-verify'] as $limiter) {
+            RateLimiter::for($limiter, function (Request $request) use ($limiter): array {
+                $ip = hash('sha256', (string) $request->ip());
+                $actor = hash('sha256', (string) $request->user('web')?->id);
+                $limits = [
+                    Limit::perMinute(5)->by($limiter.':minute:'.$ip),
+                    Limit::perHour(20)->by($limiter.':ip:'.$ip),
+                    Limit::perHour($limiter === 'email-change' ? 5 : 20)->by($limiter.':actor:'.$actor),
+                ];
+                if ($limiter === 'email-change') {
+                    $email = $request->input('email');
+                    $key = is_string($email) ? hash('sha256', mb_strtolower(trim($email), 'UTF-8')) : 'invalid-'.$ip;
+                    $limits[] = Limit::perHour(5)->by($limiter.':email:'.$key);
+                }
+
+                return $limits;
+            });
+        }
+
         foreach (['password-forgot', 'password-reset'] as $limiter) {
             RateLimiter::for($limiter, function (Request $request) use ($limiter): array {
                 $ip = hash('sha256', (string) $request->ip());

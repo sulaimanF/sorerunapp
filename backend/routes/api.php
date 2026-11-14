@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Auth\ConfirmEmailChangeController;
 use App\Http\Controllers\Api\V1\Auth\CurrentMemberController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\V1\Auth\LoginMemberController;
 use App\Http\Controllers\Api\V1\Auth\LogoutMemberController;
 use App\Http\Controllers\Api\V1\Auth\RegisterMemberController;
+use App\Http\Controllers\Api\V1\Auth\RequestEmailChangeController;
 use App\Http\Controllers\Api\V1\Auth\ResendVerificationEmailController;
 use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\V1\Members\ShowMemberProfileController;
@@ -40,6 +42,8 @@ Route::prefix('v1')->group(function (): void {
         ->name('api.v1.auth.login');
 
     Route::middleware([RequireBrowserSession::class, 'auth:sanctum', EnsureCurrentBrowserSession::class])->group(function (): void {
+        Route::post('/me/email-change', RequestEmailChangeController::class)->middleware('throttle:email-change')->name('api.v1.me.email-change.request');
+        Route::post('/me/email-change/verify', ConfirmEmailChangeController::class)->middleware('throttle:email-change-verify')->name('api.v1.me.email-change.verify');
         Route::get('/me/profile', ShowMemberProfileController::class)->name('api.v1.me.profile.show');
         Route::patch('/me/profile', UpdateMemberProfileController::class)->middleware('throttle:60,1')->name('api.v1.me.profile.update');
         Route::get('/me/membership/card', MembershipCardController::class)->name('api.v1.me.membership.card');

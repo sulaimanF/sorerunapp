@@ -18,6 +18,7 @@ import {
 } from "@/features/auth/services";
 import { verificationIntent } from "@/features/auth/verification-intent";
 import { passwordResetIntent } from "@/features/auth/password-reset-intent";
+import { emailChangeIntent } from "@/features/auth/email-change-intent";
 import type { BrowserSession, LoginCredentials } from "@/features/auth/types";
 
 type Transition = "idle" | "login" | "login-redirect" | "logout" | "refresh" | "logout-check" | "logout-unknown";
@@ -31,6 +32,8 @@ type SessionContextValue = {
   login: (credentials: LoginCredentials) => Promise<void>;
   completeLogin: () => void;
   logout: () => Promise<void>;
+  completeEmailChange: (actorId: number) => Promise<boolean>;
+  emailChangeNotice: boolean;
 };
 const SessionContext = createContext<SessionContextValue | null>(null);
 
@@ -38,6 +41,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const [transition, setTransition] = useState<Transition>("idle");
   const [recoveryError, setRecoveryError] = useState<ApiError | null>(null);
+  const [emailChangeNotice, setEmailChangeNotice] = useState(false);
   const query = useQuery({
     queryKey: sessionKey,
     queryFn: ({ signal }) => currentMember(signal),
@@ -87,6 +91,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }
   async function login(credentials: LoginCredentials) {
+    setEmailChangeNotice(false);
     setTransition("login");
     try {
       await clearPrivateQueries(client);
@@ -102,12 +107,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const completeLogin = useCallback(() => {
     setTransition(current => current === "login-redirect" ? "idle" : current);
   }, []);
+  async function completeEmailChange(actorId: number) {
+    if (!(await clearPrivateQueries(client, actorId))) return false;
+    setEmailChangeNotice(true);
+    verificationIntent.set(null);
+    passwordResetIntent.set(null);
+    emailChangeIntent.set(null);
+    setTransition("idle");
+    announce();
+    return true;
+  }
   async function logout() {
     setTransition("logout");
     setRecoveryError(null);
     await clearPrivateQueries(client);
     verificationIntent.set(null);
     passwordResetIntent.set(null);
+    emailChangeIntent.set(null);
     try {
       await logoutMember();
       setTransition("idle");
@@ -134,6 +150,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         login,
         completeLogin,
         logout,
+        completeEmailChange,
+        emailChangeNotice,
       }}
     >
       {children}

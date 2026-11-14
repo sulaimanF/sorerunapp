@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.5 |
-| Tanggal | 10 November 2026 |
+| Versi dokumen | 1.6 |
+| Tanggal | 11 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Jenis dokumen | Design system visual dan pedoman UI/UX |
@@ -422,6 +422,14 @@ Saat eligibility tidak terpenuhi, ganti panel credential dengan status dan bantu
 
 Profil memakai section Identitas, Akun, dan informasi opsional. Status perubahan email pending terlihat jelas: alamat lama tetap aktif sampai verifikasi baru. Jangan menampilkan email baru sebagai aktif sebelum konfirmasi server.
 
+Bagian Akun menampilkan **Email aktif**, panel **Email pending** bila ada, dan tombol **Ubah Email**. Form awalnya tertutup dan baru dibuka setelah tombol diklik, dengan fokus pada Email baru. Tombol **Batal Ubah Email** menutup form dan membersihkan input/error; status pending serta cooldown tetap dipertahankan. Form **Ubah email** berisi Email baru, Password akun saat ini dengan tampilkan/sembunyikan, dan tombol **Kirim Verifikasi Email Baru**. Paste dan password manager tetap diizinkan. Sebelum submit tampilkan: “Email aktif lama tetap digunakan untuk login sampai alamat baru dikonfirmasi. Konfirmasi perubahan akan mengakhiri seluruh sesi akun; Anda perlu masuk kembali menggunakan email baru.”
+
+State form: validasi terhubung ke input, loading “Memproses permintaan…”, cooldown “Tunggu N detik” mengikuti server, error jaringan tanpa sukses palsu, serta receipt “Permintaan perubahan email diterima untuk diproses. Periksa kotak masuk alamat baru dan folder spam.” Receipt tidak mengklaim email terkirim. Sediakan **Periksa Status Email**; saat diklik tombol dinonaktifkan dan menampilkan spinner serta “Memeriksa status email…”. Setelah respons server terbaru berhasil, buka dialog **Status Email** berisi email aktif, email pending/kedaluwarsa atau keterangan tidak ada permintaan, serta cooldown berjalan atau keterangan dapat mengajukan perubahan sekarang. Dialog memiliki tombol **Tutup**, dapat ditutup dengan Escape, dan mengembalikan fokus ke tombol pemeriksaan. Jika pemeriksaan gagal, tampilkan error tanpa membuka dialog memakai data lama; input form tetap dipertahankan. Pending yang kedaluwarsa menjelaskan perlunya permintaan baru. Tujuan baru menggantikan permintaan sebelumnya setelah diterima server.
+
+Halaman `/verify-email-change` memakai layout auth dan judul **Konfirmasi email baru**. Membuka halaman hanya menampilkan informasi; tombol **Konfirmasi Email Baru** menjalankan konfirmasi eksplisit. Tampilkan email akun sesi saat ini, alamat tujuan, dan konsekuensi seluruh sesi berakhir. Guest diarahkan untuk masuk memakai email aktif lama lalu membuka ulang tautan; tidak melanjutkan otomatis dari login. Tautan tidak tersedia/invalid/expired/bekas atau tidak sesuai akun mendapat pesan aman dan tautan kembali ke Profil/Login, tanpa mengganti akun secara otomatis.
+
+Setelah berhasil, arahkan ke `/login` dengan pesan “Email berhasil diubah dan seluruh sesi telah diakhiri. Silakan masuk menggunakan email baru.” Pesan ini adalah konfirmasi hasil perubahan, bukan banner sesi aktif atau aksi lanjut manual. Login berikutnya tetap langsung ke beranda. Semua state memakai semantic tokens Sunset, kontrol minimum 44 px, fokus terlihat, error aksesibel, dan reflow 320 px; styling tambahan auth tetap di globals.css dengan prefix src-auth-.
+
 Riwayat menampilkan nama event, tanggal lokal, waktu hadir, status catatan, dan konteks pembatalan event bila ada. Tidak menyediakan tombol member untuk memulihkan attendance voided atau mengaktifkan kembali membership.
 
 ## 12. Scanner dan operasi lapangan
@@ -734,3 +742,10 @@ Revisi tahap 7 — konfirmasi logout: dialog berjudul Keluar dari akun? dengan t
 | Versi | Tanggal | Perubahan |
 | --- | --- | --- |
 | 1.5 | 10 November 2026 | Pemilik produk menyetujui login langsung ke /beranda tanpa banner sesi aktif/aksi lanjut manual; Memeriksa akun… bertahan selama pemeriksaan dan perpindahan halaman. Ketentuan banner pada revisi sebelumnya digantikan; footer, palet Sunset, dan status Final dipertahankan. |
+
+### 20.6 Revisi perubahan email
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.6 | 11 November 2026 | Melengkapi §11.4 untuk form perubahan email, pending/expired, konfirmasi eksplisit, dan pesan login ulang setelah seluruh sesi diakhiri. Palet Sunset dan status Final dipertahankan. |
+| 1.6 (pembaruan UI) | 14 November 2026 | Sesuai permintaan pemilik produk, form perubahan email dibuka melalui tombol Ubah Email dan dapat dibatalkan; pemeriksaan status menampilkan loading lalu dialog hasil email aktif/pending/kedaluwarsa dan cooldown. |

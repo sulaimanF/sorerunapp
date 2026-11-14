@@ -29,6 +29,21 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password wajib diisi."),
 });
 export type LoginValues = z.infer<typeof loginSchema>;
+export const emailChangeStatusSchema = z.object({
+  active_email: z.string().email(),
+  retry_after: z.number().int().nonnegative(),
+  pending: z.object({
+    email: z.string().email(),
+    expires_at: z.string().datetime({ offset: true }),
+    status: z.enum(["pending", "expired"]),
+  }).nullable(),
+});
+export type EmailChangeStatus = z.infer<typeof emailChangeStatusSchema>;
+export const emailChangeProofSchema = z.object({
+  request_id: z.string().uuid(),
+  email,
+  token: z.string().regex(/^[a-f0-9]{64}$/),
+});
 export const registrationSchema = z
   .object({
     full_name: z

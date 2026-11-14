@@ -6,7 +6,9 @@ namespace App\Actions\Auth;
 
 use App\Exceptions\ApiProblem;
 use App\Models\AuditLog;
+use App\Models\EmailChangeRequest;
 use App\Models\User;
+use App\Services\Auth\EmailChangeState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -29,6 +31,8 @@ class ResetMemberPassword
                     'password' => $password, 'remember_token' => Str::random(60), 'auth_version' => $subject->auth_version + 1,
                 ])->save();
                 DB::table('sessions')->where('user_id', $subject->id)->delete();
+                EmailChangeRequest::query()->where('user_id', $subject->id)->whereNull('revoked_at')->whereNull('consumed_at')->update(['revoked_at' => now('UTC')]);
+                app(EmailChangeState::class)->cancelDeliveries((int) $subject->id);
                 DB::table('notification_deliveries')->where('user_id', $subject->id)->where('type', 'password_reset')
                     ->whereIn('status', ['pending', 'processing', 'failed'])->update([
                         'status' => 'cancelled', 'payload_encrypted' => null, 'lease_until' => null,

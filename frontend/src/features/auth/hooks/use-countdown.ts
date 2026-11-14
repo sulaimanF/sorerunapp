@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 export function useCountdown() {
   const [end, setEnd] = useState(0);
   const [remaining, setRemaining] = useState(0);
@@ -11,12 +11,10 @@ export function useCountdown() {
     );
     return () => window.clearInterval(interval);
   }, [end]);
-  return {
-    remaining,
-    start(seconds: number) {
-      const bounded = Math.min(3600, Math.max(1, seconds));
-      setEnd(Date.now() + bounded * 1000);
-      setRemaining(bounded);
-    },
-  };
+  const start = useCallback((seconds: number) => {
+    const bounded = Math.min(3600, Math.max(1, seconds));
+    setEnd(Date.now() + bounded * 1000);
+    setRemaining(bounded);
+  }, []);
+  return { remaining, start };
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AssignRequestId;
+use App\Http\Middleware\ValidateEmailChangeJson;
 use App\Http\Middleware\ValidateLoginJson;
 use App\Http\Middleware\ValidatePasswordResetJson;
 use App\Http\Middleware\ValidateProfileJson;
@@ -28,10 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('outbox:dispatch --limit=100')->everyMinute()->withoutOverlapping(5);
         $schedule->command('auth:clear-resets users')->hourly()->withoutOverlapping(5);
+        $schedule->command('email-changes:prune')->hourly()->withoutOverlapping(5);
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-        $middleware->prependToGroup('api', [AssignRequestId::class, ValidatePasswordResetJson::class, ValidateRegistrationJson::class, ValidateLoginJson::class, ValidateProfileJson::class]);
+        $middleware->prependToGroup('api', [AssignRequestId::class, ValidateEmailChangeJson::class, ValidatePasswordResetJson::class, ValidateRegistrationJson::class, ValidateLoginJson::class, ValidateProfileJson::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

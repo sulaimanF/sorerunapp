@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.4 |
-| Tanggal | 10 November 2026 |
+| Versi dokumen | 1.5 |
+| Tanggal | 11 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Acuan bisnis | PRD.md final, termasuk revisi versi teknologi |
@@ -267,6 +267,16 @@ Prefix nomor masih detail branding yang belum ditentukan pada PRD. Gunakan konfi
 
 Perubahan email memerlukan autentikasi ulang password. Alamat lama tetap aktif; simpan alamat baru pada email_change_requests, token hash, kedaluwarsa, dan user version yang dituju. Verifikasi alamat baru mengunci membership/user, memeriksa uniqueness ulang dan konsumsi request dalam satu transaksi. Dua pengguna yang memverifikasi alamat sama tidak bisa mengambil satu email. Request lama dicabut saat mengganti tujuan; email lama tidak dapat memverifikasi email baru. Nomor member/QR tetap.
 
+Implementasi FR-04: kedua POST `/me/email-change` dan `/me/email-change/verify` memakai sesi pemilik yang enabled, verified, versi terkini, serta CSRF stateful. Pemilik tidak diterima dari client. Request UUID menyimpan SHA-256 token acak 32 byte, email tujuan ternormalisasi, versi akun, expiry 60 menit, consumed_at/revoked_at. Email pending tidak mereservasi alamat; constraint UNIQUE users.email tetap menentukan pemilik akhir. Lock membership → user → request; deadlock retry maksimal tiga kali, dan konflik unique saat konfirmasi menjadi 409 tanpa perubahan parsial.
+
+Konfirmasi mengubah email dan email_verified_at, mengonsumsi request, menaikkan auth_version, merotasi remember token, mencabut request lain, menghapus token broker lama dan seluruh sesi, membatalkan delivery yang tidak relevan, serta menulis audit dalam transaksi yang sama. Cookie sesi saat ini diakhiri setelah commit. Sesi versi lama yang terlambat tersimpan tetap ditolak middleware. Reset password mencabut pending email request/delivery; perubahan versi akun lain juga membuat proof stale. Status akun/membership, nomor, QR, dan riwayat tidak berubah. Tidak ada auto-login atau perubahan identitas sesi akun lain.
+
+Cooldown permintaan 60 detik per akun; limit terpisah request/verify: 5/menit/IP dan 20/jam/IP. Permintaan tambahan dibatasi 5/jam/akun dan 5/jam/email tujuan ternormalisasi; verify 20/jam/akun. Key cache memakai hash; 429 memakai Retry-After server. GET/PATCH profil menambahkan whitelist email_change untuk email aktif, pending/expired, expiry dan sisa cooldown. Request kedaluwarsa lebih dari 30 hari dibersihkan scheduler tiap jam dalam batch maksimal 1.000, tanpa menghapus audit.
+
+Outbox email_change dibuat dalam transaksi dan dispatch setelah commit melalui worker/sweep existing. Proof sementara disimpan terenkripsi; job hanya membawa delivery ID. Worker memeriksa pemilik, versi, hash, expiry, serta consumed/revoked, kemudian mengirim ke alamat pending lewat notifikasi on-demand, tanpa mengganti User.email dan tanpa layanan email di dalam lock. Retry memakai proof/expiry awal, bukan menerbitkan token baru. Payload dibersihkan saat sent/cancelled/final failure. Race setelah pemeriksaan worker dapat mengirim tautan yang sudah tidak berlaku, tetapi tidak dapat mengaktifkannya kembali.
+
+Tautan hanya memakai FRONTEND_URL tepercaya dan `/verify-email-change#request_id=...&email=...&token=...`. GET frontend hanya merender; mutasi memerlukan POST eksplisit. Browser menghapus fragment, menahan proof hanya di memori komponen, dan membuangnya saat halaman ditinggalkan. Guest perlu login dengan email aktif lama lalu membuka ulang email; sesi akun lain ditolak tanpa diganti. Navigasi tetap tanpa returnTo. Setelah sukses, cache privat dibersihkan, tab lain diberi sinyal perubahan sesi, dan `/login` menampilkan pesan login ulang menggunakan email baru.
+
 Reset password menggunakan broker Laravel dengan respons publik generik, token sekali pakai dan rate limit. Perubahan password meningkatkan auth_version dan menghapus sessions terkait; middleware menolak session dengan auth_version lama termasuk session yang terlambat tersimpan. Reset tidak mengubah status membership atau membuka blokir akun.
 
 Broker `users` memakai database `password_reset_tokens`: expiry **60 menit sejak penerbitan**, throttle penerbitan **60 detik** (`config/auth.php`). Parameter ini terpisah dari TTL verifikasi email meskipun baseline angkanya sama. Recipient cooldown juga memeriksa delivery terakhir agar konsumsi/penghapusan token tidak melewati cooldown. Forgot/reset masing-masing dibatasi 5/menit/IP, 20/jam/IP, 5/jam/email ternormalisasi melalui cache existing tanpa lookup status akun. Forgot selalu 202 generik dan Retry-After 60 untuk payload valid, termasuk cooldown dan akun tidak dikenal; rate limit 429 mengikuti bucket server. Durasi minimum respons forgot 200 ms mengurangi perbedaan waktu sederhana, bukan jaminan constant-time.
@@ -473,7 +483,7 @@ Audit menyimpan perubahan status, kuota, penugasan, credential ID/revocation, ko
 | Tabel | Isi |
 | --- | --- |
 | email_change_requests | user_id, email tujuan, token_hash, user_version, expires_at, consumed_at/revoked_at |
-| notification_deliveries | id, user_id NULL, type, dedupe_key UNIQUE, status, attempt_count, available_at, lease_until, sent_at, provider_reference NULL, last_error_code NULL; payload_encrypted TEXT NULL khusus proof reset sementara |
+| notification_deliveries | id, user_id NULL, type, dedupe_key UNIQUE, status, attempt_count, available_at, lease_until, sent_at, provider_reference NULL, last_error_code NULL; payload_encrypted TEXT NULL untuk proof reset/perubahan email sementara |
 | sessions | Session database Laravel; user_id, payload, last_activity; payload memuat auth_version |
 | password_reset_tokens | Tabel broker Laravel; email PK, token hash, created_at; user_id nullable FK dan auth_version nullable sebagai binding penerima/versi; token tanpa binding tidak dapat dikonsumsi |
 | jobs / failed_jobs / job_batches bila digunakan | Infrastruktur queue Laravel |
@@ -528,7 +538,7 @@ Path berikut menetapkan batas operasi; spesifikasi request/response lengkap ditu
 | GET /auth/email-verification/{id}/{hash} | Publik signed + expiry; readiness saja tanpa mutasi domain |
 | POST /auth/email-verification/{id}/{hash} | Publik signed + expiry + CSRF; JSON {}; cek email/auth_version/status di bawah lock, verifikasi/aktivasi idempotent; tanpa auto-login |
 | PATCH /me/profile | Update sendiri dengan data wajib |
-| POST /me/email-change; POST /me/email-change/verify | Password confirmation / verifikasi token tujuan |
+| POST /me/email-change; POST /me/email-change/verify | Sesi pemilik enabled/verified/current + CSRF; password confirmation / token tujuan; konfirmasi mencabut seluruh sesi |
 | GET /me/membership/card; GET /me/attendances | Kartu eligible / riwayat sendiri |
 | GET /events; GET /events/{event} | Member terautentikasi; event published yang diperbolehkan |
 | GET /staff/events | Admin/staff, sesuai penugasan |
@@ -761,3 +771,7 @@ Melengkapi §8.3/11.7/12.2 untuk FR-03: broker database Laravel, binding token p
 ## 24. Revisi transisi login 1.4 — 10 November 2026
 
 Sesuai instruksi pemilik produk, banner sesi aktif dan tautan lanjut manual pada login digantikan alur submit → Memeriksa akun… → /beranda. Transisi tetap aktif sampai halaman tujuan terbuka; aturan ini menggantikan ketentuan banner pada revisi sebelumnya. Kegagalan login tetap mempertahankan form/error. Tidak ada perubahan API, database, CSRF, atau syarat enabled/verified. Status Final dipertahankan.
+
+## 25. Revisi perubahan email 1.5 — 11 November 2026
+
+Melengkapi §8.3/11.7/12.2 untuk FR-04: pending email terverifikasi, pencabutan seluruh sesi setelah konfirmasi, outbox tujuan pending, batas permintaan dan cleanup. Kebijakan login ulang disetujui pemilik produk; stack dan status Final dipertahankan. Kode tahap ini disiapkan tanpa pemeriksaan eksekusi; bukan pernyataan keberhasilan migrasi atau pengujian.

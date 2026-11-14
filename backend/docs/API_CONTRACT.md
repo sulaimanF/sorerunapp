@@ -386,3 +386,98 @@ Kedua endpoint mempunyai bucket terpisah: **5/menit/IP, 20/jam/IP, 5/jam/email t
 Outbox `password_reset` menyimpan proof terenkripsi sementara, bukan token mentah pada job. Callback broker membuat hash/token binding dan outbox dalam satu transaksi; dispatch hanya setelah commit. Job existing dan sweep pending memulihkan kegagalan dispatch. Worker memeriksa email/version/token masih current lalu mengirim SMTP di luar row lock. Retry menggunakan token dan expiry awal; consumed/replaced/expired/stale delivery dibatalkan, tidak menerbitkan ulang token. Payload dibersihkan saat sent/cancelled/final failure. SMTP masih dapat menerima duplikasi jika worker crash setelah provider menerima email.
 
 Tautan hanya berasal dari `FRONTEND_URL` tepercaya dengan path `/reset-password` dan fragment email/token; URL tujuan bebas ditolak. Browser menghapus fragment setelah parsing dan menyimpan proof hanya selama form terbuka. Konfigurasi/operasi dan batas pengujian: [PASSWORD_RESET_STAGE08.md](../../docs/PASSWORD_RESET_STAGE08.md).
+
+## Perubahan email terverifikasi — tahap 09, 11 November 2026
+
+Kedua endpoint di bawah membutuhkan sesi browser pemilik, akun enabled, email aktif verified, serta auth_version terkini. Gunakan GET `/sanctum/csrf-cookie`, credentials, Origin frontend tepercaya dan header `X-XSRF-TOKEN` pada POST. Tidak menerima user_id, tujuan redirect, role, atau status dari client. JSON object maksimal 4.096 byte; query/field tambahan ditolak. Error format: 400 INVALID_JSON, 413 PAYLOAD_TOO_LARGE, 415 UNSUPPORTED_MEDIA_TYPE; metode selain POST pada endpoint ini 405. Semua respons memakai no-store, `meta.request_id` dan X-Request-ID existing.
+
+### POST /api/v1/me/email-change
+
+```json
+{
+  "email": "alamat-baru@example.test",
+  "password": "<password-akun-saat-ini>"
+}
+```
+
+Email trim/lowercase, RFC, maksimum 254 karakter sesuai aturan akun; tidak menghapus alias titik/plus. Password tidak di-trim, mengikuti batas byte login existing, dan harus cocok dengan hash akun saat lock dipegang. Email sama dengan alamat aktif atau alamat yang telah dipakai mendapat 409 EMAIL_UNAVAILABLE tanpa identitas pemilik alamat. Email pending tidak mereservasi alamat.
+
+Sukses **202**, `Retry-After: 60`:
+
+```json
+{
+  "data": { "result": "email_change_requested" },
+  "meta": { "request_id": "d6578996-20ac-4d4e-ab72-ef8d187fe122" }
+}
+```
+
+Receipt menerima pemrosesan outbox, bukan bukti email terkirim atau alamat aktif berubah. Permintaan berlaku 60 menit. Permintaan baru yang diterima mencabut semua request sebelumnya dan delivery pending terkait. Setelah cooldown, permintaan ke tujuan sama juga membuat proof baru; tidak ada endpoint resend terpisah.
+
+Cooldown **60 detik per akun** dihitung dari request terakhir, termasuk setelah reload atau penggantian tujuan. Limit request: **5/menit/IP, 20/jam/IP, 5/jam/akun, 5/jam/email tujuan ternormalisasi**. Cooldown/bucket yang menolak mengembalikan 429 RATE_LIMITED dengan Retry-After sisa waktu server. Key cache di-hash. Salah password tetap dihitung oleh limiter.
+
+### Status pada GET/PATCH /api/v1/me/profile
+
+Response profil mendapat field tambahan `email_change`; field edit PATCH tetap sama dan tidak menerima email/password. Contoh potongan data:
+
+```json
+{
+  "email_change": {
+    "active_email": "alamat-lama@example.test",
+    "retry_after": 42,
+    "pending": {
+      "email": "alamat-baru@example.test",
+      "expires_at": "2026-11-11T05:00:00Z",
+      "status": "pending"
+    }
+  }
+}
+```
+
+`pending` null bila tidak ada request unconsumed/unrevoked dengan versi akun terkini. Status menjadi `expired` ketika waktu habis; request expired tetap ditampilkan sampai diganti/dibersihkan. `retry_after` detik nonnegatif untuk cooldown penerima; bucket rate limit tetap dapat menolak lebih lama. Tidak mengekspos request ID, hash, token, atau versi akun. `email_change` nullable jika pemilik tidak lagi tersedia ketika resource dibentuk. Detail biodata tetap pada [PROFILE_API_STAGE_07.md](PROFILE_API_STAGE_07.md).
+
+### POST /api/v1/me/email-change/verify
+
+Contoh placeholder, bukan proof aktif:
+
+```json
+{
+  "request_id": "d6578996-20ac-4d4e-ab72-ef8d187fe122",
+  "email": "alamat-baru@example.test",
+  "token": "<64-digit-hex-lowercase-dari-email>"
+}
+```
+
+request_id UUID; email mengikuti normalisasi request; token 64 digit hex lowercase. Pemilik berasal dari sesi. Token untuk akun lain, versi stale, tujuan berbeda, consumed/revoked/expired mendapat 422 EMAIL_CHANGE_INVALID dengan pesan aman, tanpa mengubah sesi akun lain. Request invalid tidak mengonsumsi proof. Limit verify memakai bucket terpisah **5/menit/IP, 20/jam/IP, 20/jam/akun**.
+
+Sukses **200**:
+
+```json
+{
+  "data": { "result": "email_changed" },
+  "meta": { "request_id": "d6578996-20ac-4d4e-ab72-ef8d187fe122" }
+}
+```
+
+Transaksi mengunci membership → user → request; memeriksa ulang token, pemilik, tujuan, expiry, versi dan uniqueness. Constraint UNIQUE users.email adalah perlindungan akhir; konflik paralel menjadi 409 EMAIL_UNAVAILABLE dengan rollback. Email baru dan verified_at, konsumsi proof, auth_version +1, remember token, pencabutan request/delivery terkait, penghapusan broker proof lama dan seluruh sesi, serta audit commit bersama. Cookie sesi pemilik kemudian diakhiri. Dua konfirmasi proof sama menghasilkan maksimal satu sukses; request lainnya dapat ditolak 401 versi sesi usang atau 422 proof bekas. Tidak mengubah status blokir, membership, nomor/QR, atau riwayat; tanpa auto-login.
+
+| HTTP / code | Keadaan |
+| --- | --- |
+| 401 UNAUTHENTICATED / SESSION_EXPIRED | Login diperlukan atau sesi sudah dicabut; gunakan email aktif lama bila belum konfirmasi |
+| 403 ACCOUNT_BLOCKED / EMAIL_NOT_VERIFIED | Akun/sesi tidak memenuhi guard existing |
+| 409 EMAIL_UNAVAILABLE | Alamat tidak dapat dipakai, termasuk konflik saat commit |
+| 419 CSRF_MISMATCH | Origin/session/CSRF tidak sesuai |
+| 422 VALIDATION_FAILED | Format/field tidak memenuhi kontrak |
+| 422 PASSWORD_CONFIRMATION_FAILED | Password saat ini tidak sesuai; error.fields.password tersedia |
+| 422 EMAIL_CHANGE_INVALID | Proof tidak sesuai akun/tujuan, expired, stale, revoked, atau bekas |
+| 429 RATE_LIMITED | Bucket/cooldown; ikuti Retry-After |
+| 500/503 SERVER_ERROR / SERVICE_UNAVAILABLE | Error tersanitasi; tidak mengklaim sukses |
+
+Timeout dapat berarti transaksi sudah commit. Jangan retry mutation otomatis: periksa status/sesi atau coba login dengan email baru. Login berhasil tetap ke `/beranda`, tanpa returnTo.
+
+### Delivery dan browser
+
+Outbox `email_change` memakai payload terenkripsi sementara `{request_id, token}`; job hanya delivery ID. Worker memilih alamat pending dari request yang masih valid, bukan alamat aktif User. Hash, owner, expiry, versi dan consumed/revoked diperiksa sebelum pengiriman di luar lock. Retry/sweep tidak menerbitkan token baru. Payload dihapus saat sent/cancelled/final failure. Provider dapat menerima email duplikat atau tautan yang telanjur invalid akibat race; ini tidak menghidupkan kembali proof. Reset password mencabut pending request/delivery dalam transaksi reset; perubahan auth_version lain membuatnya stale.
+
+Tautan dari FRONTEND_URL tepercaya menuju `/verify-email-change` dengan fragment request_id/email/token. GET halaman read-only; fragment dihapus dari address bar dan proof hanya di memori komponen. POST memerlukan klik eksplisit. Guest login memakai email aktif lama lalu membuka ulang email; tidak ada penyimpanan proof/returnTo atau pergantian identitas sesi. Sukses membersihkan cache privat dan menuju `/login` dengan pesan memakai email baru. Pesan sukses hanya memori, tidak memuat alamat/token dan tidak persisten setelah reload.
+
+Audit hanya menyimpan actor/target/request_id dan flag tindakan, tanpa alamat, password atau proof. Tidak mencatat body/fragment dalam log/analytics. Migration, SMTP/worker/scheduler, serta matriks verifikasi yang **belum dijalankan**: [EMAIL_CHANGE_STAGE09.md](../../docs/EMAIL_CHANGE_STAGE09.md).
