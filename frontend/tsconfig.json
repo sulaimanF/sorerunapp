@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,7 +23,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
   "include": [
@@ -28,7 +34,29 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next/stage09-browser/types/**/*.ts",
+    ".next/stage09-browser/dev/types/**/*.ts",
+    ".next/stage09-live/types/**/*.ts",
+    ".next/stage09-live/dev/types/**/*.ts",
+    ".next/stage09-build/types/**/*.ts",
+    ".next/stage09-build/dev/types/**/*.ts",
+    ".next/landing-browser/types/**/*.ts",
+    ".next/landing-browser/dev/types/**/*.ts",
+    ".next/landing-live/types/**/*.ts",
+    ".next/landing-live/dev/types/**/*.ts",
+    ".next/landing-build/types/**/*.ts",
+    ".next/landing-build/dev/types/**/*.ts",
+    ".next/landing-manual/types/**/*.ts",
+    ".next/landing-manual/dev/types/**/*.ts",
+    ".next/stage11-browser/types/**/*.ts",
+    ".next/stage11-browser/dev/types/**/*.ts",
+    ".next/stage11-live/types/**/*.ts",
+    ".next/stage11-live/dev/types/**/*.ts",
+    ".next/stage11-build/types/**/*.ts",
+    ".next/stage11-build/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

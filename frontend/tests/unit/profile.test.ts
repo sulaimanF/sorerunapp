@@ -17,10 +17,10 @@ test("profile required fields cannot be blank while optional gender can be clear
   for (const field of ["full_name", "birth_date", "phone", "city"])
     assert.equal(profileSchema.safeParse({ ...input, [field]: "   " }).success, false);
   assert.equal(profileSchema.safeParse({ ...input, gender: "" }).success, true);
-  assert.equal(profileValues({ full_name: input.full_name, birth_date: "2012-02-29", phone: input.phone, city: input.city, gender: null, profile_complete: true, updated_at: null }).birth_date, input.birth_date);
+  assert.equal(profileValues({ full_name: input.full_name, birth_date: "2012-02-29", phone: input.phone, city: input.city, gender: null, profile_complete: true, updated_at: null, email_change: null }).birth_date, input.birth_date);
 });
 test("profile response parser keeps only the private profile contract", () => {
-  const parsed = memberProfileSchema.parse({ full_name: input.full_name, birth_date: "2012-02-29", phone: input.phone, city: input.city, gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z", photo_path: "private/path", auth_version: 1 });
+  const parsed = memberProfileSchema.parse({ full_name: input.full_name, birth_date: "2012-02-29", phone: input.phone, city: input.city, gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z", email_change: null, photo_path: "private/path", auth_version: 1 });
   assert.equal("photo_path" in parsed, false);
   assert.equal("auth_version" in parsed, false);
   assert.equal(memberProfileSchema.safeParse({ full_name: input.full_name }).success, false);

@@ -1,5 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
+// Superseded: the public landing page owns /. Never reinstall the legacy redirect.
+if (fs.existsSync(path.resolve(__dirname, '../frontend/src/app/(marketing)/page.tsx'))) {
+  console.error('Script navigasi ini sudah digantikan oleh landing page publik. Tidak ada file yang diubah.');
+  process.exit(1);
+}
 const root = path.resolve(__dirname, '..');
 const ts = require(path.join(root, 'frontend/node_modules/typescript'));
 const updates = new Map();

@@ -24,6 +24,7 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
+use Tests\Support\ApprovedTestDatabase;
 use Tests\Support\EnforceCsrfInRegistrationTests;
 use Tests\TestCase;
 
@@ -40,7 +41,7 @@ final class BrowserSessionTest extends TestCase
         parent::setUp();
         $connection = DB::connection();
         if (! app()->environment('testing') || $connection->getDriverName() !== 'mysql'
-            || $connection->getDatabaseName() !== 'sorerunapp_test'
+            || $connection->getDatabaseName() !== ApprovedTestDatabase::name()
             || config('session.driver') !== 'database' || config('session.connection') !== 'mysql'
             || config('session.table') !== 'sessions' || config('cache.default') !== 'array'
             || ! str_starts_with((string) DB::selectOne('SELECT VERSION() AS version')->version, '8.4.')

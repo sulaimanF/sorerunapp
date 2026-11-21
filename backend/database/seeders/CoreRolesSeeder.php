@@ -18,6 +18,7 @@ final class CoreRolesSeeder extends Seeder
             RoleCode::Member->value => 'Anggota',
             RoleCode::Staff->value => 'Petugas',
             RoleCode::Admin->value => 'Administrator',
+            RoleCode::SuperAdmin->value => 'Super Admin',
         ] as $code => $name) {
             // Running the seeder again preserves role IDs and assignments.
             DB::table('roles')->upsert([

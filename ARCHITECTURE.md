@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.4 |
-| Tanggal | 10 November 2026 |
+| Versi dokumen | 1.8 |
+| Tanggal | 21 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Acuan bisnis | PRD.md final, termasuk revisi versi teknologi |
@@ -130,6 +130,7 @@ Satu Git repository di root; tidak membuat repository Git bersarang. Frontend da
 | Path di frontend | Kegunaan |
 | --- | --- |
 | src/app/(public)/ | Registrasi, login, reset password, hasil verifikasi |
+| src/app/(marketing)/ | Landing page /, SSR konten publik tanpa provider sesi |
 | src/app/(member)/ | Profil, kartu, event, riwayat |
 | src/app/(staff)/ | Event tugas, scanner, manual check-in, daftar hadir |
 | src/app/(admin)/ | Pengelolaan member, event, koreksi, laporan |
@@ -139,6 +140,7 @@ Satu Git repository di root; tidak membuat repository Git bersarang. Frontend da
 | src/features/events/ | Event dan penugasan |
 | src/features/attendance/ | Preview, konfirmasi, manual, koreksi |
 | src/features/reports/ | Filter dan ekspor |
+| src/features/content/ | Landing publik, editor admin, preview dan kontrak konten terstruktur |
 | src/components/ui/ | Komponen dasar shadcn |
 | src/components/shared/ | Komponen lintas fitur yang benar-benar digunakan bersama |
 | src/lib/ | HTTP client, QueryClient, konfigurasi, utilitas umum |
@@ -181,6 +183,7 @@ Gunakan model/relasi Eloquent langsung dalam action. Repository abstraction tamb
 | Attendance | event_attendances, event_anonymized_stats | Preview, confirm, manual, koreksi, agregasi privasi |
 | Reporting | Query domain | Daftar hadir, riwayat, ringkasan, CSV |
 | Notification | notification_deliveries | Antrean tahan gagal dan status pengiriman |
+| Content | landing_pages, landing_page_revisions, landing_page_media, landing_page_revision_media | Draft editorial, preview admin, publikasi snapshot dan media landing; terpisah event/profil anggota |
 | Audit/Privacy | audit_logs, privacy_requests, erasure_markers | Jejak administratif, retensi, penghapusan |
 
 Attendance membaca status dari Auth/Membership/Credential/Event dan menulis kehadiran serta counter event melalui action transaksi. Reporting tidak boleh membuat perubahan domain. Audit perubahan penting disimpan dalam transaksi yang sama dengan perubahan; email dikirim setelah commit.
@@ -202,7 +205,7 @@ CORS tidak menggunakan wildcard bersama credentials. Endpoint auth juga diberi r
 
 ### 7.1.1 Navigasi autentikasi tetap
 
-- Root / memakai redirect sementara 307 ke /login pada next.config.ts, sebelum render halaman. Halaman root yang hanya memanggil redirect dihapus setelah backup agar tidak memicu validasi instant pada halaman pengalihan. Tidak mematikan Cache Components/Partial Prefetching.
+- Root / menampilkan landing page publik bagi tamu maupun pengguna login. Redirect root di next.config.ts dihapus; route berada pada (marketing), terpisah AuthShell/provider sesi. Cache Components/Partial Prefetching tetap aktif. Aturan ini menggantikan redirect root pada revisi 1.2.
 - Tamu yang membuka route privat, sesi berakhir, dan logout berhasil menuju /login. Semua login berhasil menuju /beranda. Tidak menyimpan/meneruskan halaman sebelumnya sebagai tujuan login.
 - Form login tidak membaca returnTo sebagai tujuan. Query/hash pada tautan login lama dibersihkan memakai history.replaceState setelah mount; destination tetap berasal dari konstanta internal.
 - Perpindahan menu saat sesi valid tetap ke halaman yang dipilih. Logout dan guard sesi memakai tujuan yang sama sehingga tidak saling menimpa dengan parameter halaman asal.
@@ -212,7 +215,7 @@ CORS tidak menggunakan wildcard bersama credentials. Endpoint auth juga diberi r
 
 ### 7.2 Izin
 
-Role tetap member, staff, admin disimpan pada roles/user_roles. Tidak memerlukan permission builder dinamis pada MVP. Membership active tidak memberikan role staff. Request registrasi mengabaikan/menolak field role dan status dari client.
+Role member, staff, admin, super_admin disimpan pada roles/user_roles dengan kemampuan multi-role tetap. AdministrativePermissions menjadi pemeriksaan bersama: manage untuk admin/super_admin, provision hanya super_admin, dengan akun enabled/verified/aktivasi selesai. Policy tetap menjaga ownership/eligibility; tidak memakai Gate::before yang mengizinkan semua policy. Membership active tidak memberikan role staff. Request registrasi menolak field role dan status dari client. Pembuatan akun administratif tidak tersedia bagi Admin biasa; penugasan petugas existing tetap terpisah.
 
 | Operasi | Pemeriksaan backend |
 | --- | --- |
@@ -267,6 +270,16 @@ Prefix nomor masih detail branding yang belum ditentukan pada PRD. Gunakan konfi
 
 Perubahan email memerlukan autentikasi ulang password. Alamat lama tetap aktif; simpan alamat baru pada email_change_requests, token hash, kedaluwarsa, dan user version yang dituju. Verifikasi alamat baru mengunci membership/user, memeriksa uniqueness ulang dan konsumsi request dalam satu transaksi. Dua pengguna yang memverifikasi alamat sama tidak bisa mengambil satu email. Request lama dicabut saat mengganti tujuan; email lama tidak dapat memverifikasi email baru. Nomor member/QR tetap.
 
+Implementasi FR-04: kedua POST `/me/email-change` dan `/me/email-change/verify` memakai sesi pemilik yang enabled, verified, versi terkini, serta CSRF stateful. Pemilik tidak diterima dari client. Request UUID menyimpan SHA-256 token acak 32 byte, email tujuan ternormalisasi, versi akun, expiry 60 menit, consumed_at/revoked_at. Email pending tidak mereservasi alamat; constraint UNIQUE users.email tetap menentukan pemilik akhir. Lock membership → user → request; deadlock retry maksimal tiga kali, dan konflik unique saat konfirmasi menjadi 409 tanpa perubahan parsial.
+
+Konfirmasi mengubah email dan email_verified_at, mengonsumsi request, menaikkan auth_version, merotasi remember token, mencabut request lain, menghapus token broker lama dan seluruh sesi, membatalkan delivery yang tidak relevan, serta menulis audit dalam transaksi yang sama. Cookie sesi saat ini diakhiri setelah commit. Sesi versi lama yang terlambat tersimpan tetap ditolak middleware. Reset password mencabut pending email request/delivery; perubahan versi akun lain juga membuat proof stale. Status akun/membership, nomor, QR, dan riwayat tidak berubah. Tidak ada auto-login atau perubahan identitas sesi akun lain.
+
+Cooldown permintaan 60 detik per akun; limit terpisah request/verify: 5/menit/IP dan 20/jam/IP. Permintaan tambahan dibatasi 5/jam/akun dan 5/jam/email tujuan ternormalisasi; verify 20/jam/akun. Key cache memakai hash; 429 memakai Retry-After server. GET/PATCH profil menambahkan whitelist email_change untuk email aktif, pending/expired, expiry dan sisa cooldown. Request kedaluwarsa lebih dari 30 hari dibersihkan scheduler tiap jam dalam batch maksimal 1.000, tanpa menghapus audit.
+
+Outbox email_change dibuat dalam transaksi dan dispatch setelah commit melalui worker/sweep existing. Proof sementara disimpan terenkripsi; job hanya membawa delivery ID. Worker memeriksa pemilik, versi, hash, expiry, serta consumed/revoked, kemudian mengirim ke alamat pending lewat notifikasi on-demand, tanpa mengganti User.email dan tanpa layanan email di dalam lock. Retry memakai proof/expiry awal, bukan menerbitkan token baru. Payload dibersihkan saat sent/cancelled/final failure. Race setelah pemeriksaan worker dapat mengirim tautan yang sudah tidak berlaku, tetapi tidak dapat mengaktifkannya kembali.
+
+Tautan hanya memakai FRONTEND_URL tepercaya dan `/verify-email-change#request_id=...&email=...&token=...`. GET frontend hanya merender; mutasi memerlukan POST eksplisit. Browser menghapus fragment, menahan proof hanya di memori komponen, dan membuangnya saat halaman ditinggalkan. Guest perlu login dengan email aktif lama lalu membuka ulang email; sesi akun lain ditolak tanpa diganti. Navigasi tetap tanpa returnTo. Setelah sukses, cache privat dibersihkan, tab lain diberi sinyal perubahan sesi, dan `/login` menampilkan pesan login ulang menggunakan email baru.
+
 Reset password menggunakan broker Laravel dengan respons publik generik, token sekali pakai dan rate limit. Perubahan password meningkatkan auth_version dan menghapus sessions terkait; middleware menolak session dengan auth_version lama termasuk session yang terlambat tersimpan. Reset tidak mengubah status membership atau membuka blokir akun.
 
 Broker `users` memakai database `password_reset_tokens`: expiry **60 menit sejak penerbitan**, throttle penerbitan **60 detik** (`config/auth.php`). Parameter ini terpisah dari TTL verifikasi email meskipun baseline angkanya sama. Recipient cooldown juga memeriksa delivery terakhir agar konsumsi/penghapusan token tidak melewati cooldown. Forgot/reset masing-masing dibatasi 5/menit/IP, 20/jam/IP, 5/jam/email ternormalisasi melalui cache existing tanpa lookup status akun. Forgot selalu 202 generik dan Retry-After 60 untuk payload valid, termasuk cooldown dan akun tidak dikenal; rate limit 429 mengikuti bucket server. Durasi minimum respons forgot 200 ms mengurangi perbedaan waktu sederhana, bukan jaminan constant-time.
@@ -276,6 +289,36 @@ Penerbitan dan konsumsi mengunci baris user yang sama, kemudian record broker. R
 Forgot memakai callback broker untuk membuat `notification_deliveries` type `password_reset` dalam transaksi penerbitan. Payload email/token/version dienkripsi dengan cast Laravel, hidden dari serialisasi; job hanya membawa ID dan dijadwalkan setelah commit. Worker/sweep existing memeriksa email/version/token broker saat mengirim, melepas semua lock sebelum SMTP, dan tidak pernah menerbitkan token saat retry. Payload dibersihkan pada sent/cancelled/attempt terakhir gagal; pending/failed/lease expired dipulihkan sweep existing. Race SMTP dengan konsumsi dapat mengirim tautan yang sudah invalid, tetapi tidak membuatnya berlaku lagi. Tidak menjanjikan exactly-once SMTP. Token expired dibersihkan scheduler `auth:clear-resets users` setiap jam.
 
 URL memakai origin `FRONTEND_URL` tervalidasi, `/reset-password#email=…&token=…`; tidak menerima destination dari request. Fragment dibaca hanya oleh browser, segera dihapus dari URL, dan disimpan sementara di memori form hingga keluar/reload/sukses, tanpa analytics/storage/query cache. GET tidak mengonsumsi token. POST publik tetap Sanctum stateful + CSRF, tidak memakai middleware login/verified. Sesudah sukses tidak login otomatis; refresh identitas browser mempertahankan akun lain yang sedang login. Error invalid/expired/bekas memakai satu pesan aman. Kontrak payload: `backend/docs/API_CONTRACT.md`, diindeks oleh `docs/API_CONTRACT.md`.
+
+### 8.4 Provisioning Admin operasional dan undangan
+
+Perubahan password memakai POST /api/v1/me/password (Member/Admin/Super Admin sendiri) dan POST /api/v1/admin/accounts/{id}/password (Super Admin → Admin teraktivasi/verified/enabled yang tidak mempunyai role Super Admin). Kedua endpoint memakai sesi current, CSRF stateful, FormRequest whitelist current_password/password/password_confirmation dan limit bersama 5/menit serta 20/jam/actor. Password baru mengikuti minimum 12 karakter/batas bcrypt 72 byte/no null. Password current adalah milik pelaku, bukan Admin sasaran. Hash::check dan hashing baru dilakukan sebelum row lock; transaksi lock seluruh user terkait menurut ID, recheck versi/hash password pelaku serta izin dan status/role/aktivasi sasaran. Policy changePassword memakai helper changeOwnPassword terpusat untuk role Member/Admin/Super Admin dan status eligible, terpisah dari izin manage/provision. Membership aktif tidak diperlukan untuk merawat password sendiri; hak mengubah password akun lain tetap hanya provisioning Super Admin terhadap Admin. Tidak ada bypass global atau login otomatis.
+
+Action mengganti hash password, remember token, auth_version +1, menghapus sesi/token broker, mencabut undangan belum dikonsumsi serta pending perubahan email, membatalkan delivery terkait dan menulis audit auth.password_changed atau admin.password_changed dalam transaksi sama. Email/verifikasi/status/role/membership/QR/nomor/riwayat tetap. Respons 204/no-store/noindex/X-Request-ID; tidak mengirim email atau membuat proof baru. Untuk password sendiri, cookie diakhiri setelah commit, cache privat dibersihkan dan notice memori mengarahkan /login; perubahan akun lain mempertahankan cookie/cache identitas Super Admin. Mutation tidak diulang otomatis: hasil timeout dapat belum diketahui. can_change_password pada daftar hanya petunjuk UI, bukan otorisasi final. Tidak membutuhkan schema baru.
+
+FR-22–24 menggunakan POST /api/v1/admin/accounts oleh Super Admin current/verified/enabled. Controller tipis, FormRequest whitelist, AdminAccountPolicy dan Actions terpisah; role target selalu admin dari server. Nama/email dinormalisasi, request_key UUID terikat pelaku serta SHA-256 payload kanonik. Kunci sama/payload sama mengembalikan status akun existing tanpa akun/outbox/audit ganda; payload berbeda atau email existing menghasilkan 409. UNIQUE users.email menangani perebutan email dengan registrasi/perubahan email/provisioning lain; tidak mempromosikan akun existing.
+
+Transaksi membuat user unverified dengan hash password acak yang dibuang, user_roles assigned_by, admin_provisionings, invitation, audit dan outbox. Tidak membuat profil, membership, nomor atau QR. Lock users yang sudah ada secara ID menaik → provisioning → invitations → delivery; user baru selalu ber-ID lebih besar dari pelaku. Semua penulisan role harus mengunci user terkait agar recheck policy dalam action mengikuti pencabutan yang sudah commit. Tidak mengambil membership/event lock setelah user. Idempotensi dan read status memakai locking read agar snapshot REPEATABLE READ lama tidak mengembalikan status usang. Deadlock retry maksimal tiga kali.
+
+Tautan memakai FRONTEND_URL tepercaya /accept-admin-invitation#invitation_id=…&email=…&token=…, bukan URL request. Fragment dihapus segera dan proof hanya di memori tab, dibersihkan ketika keluar/route disembunyikan/logout; GET halaman tidak bermutasi. POST /auth/admin-invitations/accept publik stateful/CSRF memeriksa target, token hash, email, versi, expiry 24 jam, consumed/revoked, akun enabled/unverified, provisioning pending dan role admin (bukan super_admin). Browser yang sudah login ditolak tanpa mengganti identitas. POST menetapkan password minimal 12 karakter/konfirmasi, email_verified_at, activated_at, konsumsi proof, auth_version +1, remember token baru, penghapusan sessions/broker proof lama, pembatalan delivery terkait dan audit atomik. Tidak login otomatis. Login/middleware menolak provisioning pending walau password sudah direset atau verified_at berubah melalui mekanisme lain; reset tidak memverifikasi email dan mencabut undangan lama.
+
+GET /admin/accounts/{id}/invitation dan POST /admin/accounts/{id}/invitation/resend hanya untuk Super Admin; bukan direktori pengguna umum. Resend mengunci actor/target berurutan, menolak activated/blocked/role target tidak sesuai, cooldown 60 detik, mencabut proof/delivery lama dan menerbitkan proof baru 24 jam. Rate limit provisioning/accept: 5/menit/IP, 20/jam/IP, 10/jam/actor (guest memakai IP), 5/jam/recipient (email hash atau target ID); status 60/menit/actor. Retry-After dipertahankan; mutation tidak diulang otomatis. Status active berarti aktivasi selesai, bukan bypass status enabled.
+
+GET /api/v1/admin/accounts menampilkan hanya akun yang saat ini ber-role admin (termasuk multi-role dan akun lama tanpa provisioning), urut ID menurun, 20 akun/halaman. Query hanya page integer 1–1000000; tidak menerima filter role/subject dari client. Middleware sesi dan izin Super Admin diperiksa lagi dengan lock actor dalam transaksi; respons Resource whitelist nama/email/status/verifikasi/keberadaan provisioning, pagination dan request_id, no-store/noindex. Tidak memuat proof, hash, data anggota atau actor. Memakai bucket baca status 60/menit/actor. Halaman /admin/accounts memakai guard provision, query privat berscope identitas/halaman dan pembersihan cache logout existing. Tidak membutuhkan schema baru atau akses daftar pengguna umum.
+
+DELETE /api/v1/admin/accounts/{id} melakukan penghapusan logis Admin operasional, bukan purge privasi §15.2. Sesi current/enabled/verified/Super, CSRF dan JSON {} wajib, limit 10/menit/actor. Action mengunci actor/target menurut ID, memeriksa ulang izin serta target hanya Admin tanpa profil/membership, menolak self/Super/multi-role (409). Dalam transaksi: status blocked, auth_version +1, cabut role Admin, sesi, undangan belum dikonsumsi, pending perubahan email, token reset dan delivery pending/processing/failed (payload retry dikosongkan), audit admin.account_deleted tanpa secret/PII. User/email/provisioning/idempotency key, publikasi/media serta audit historis tetap; tidak ada network/file I/O dalam lock. Respons 204; retry target yang sudah blocked/roleless dan memiliki audit penghapusan tidak menaikkan versi/audit lagi. Setelah audit keluar dari masa retensi, retry dapat ditolak 409 tanpa write. Replay provisioning tidak menghidupkan akun; email tetap unique. Flag can_delete pada daftar hanya petunjuk UI; aturan diperiksa lagi saat DELETE. Tidak ada migration atau endpoint pemulihan baru. Pengiriman provider yang sudah berlangsung tidak dapat ditarik kembali; tautan tetap tidak memberikan akses akun blocked.
+
+admin_invitation memakai notification_deliveries: hash proof pada invitation, proof sementara di encrypted:array payload_encrypted, job hanya delivery ID. After-commit/sweep/lease/retry/fencing existing tetap; SMTP di luar transaksi, proof tidak diterbitkan ulang saat retry. Worker memeriksa email/version/expiry/status/role/provisioning lagi sebelum kirim. Payload dibersihkan pada sent/cancelled/percobaan terakhir. Delivery normal pada local hanya penerima sintetis @example.test melalui Mailpit/mail-local; pengecualian aktivasi awal terbatas dijelaskan di bawah, tanpa membuka SMTP eksternal. SMTP race dapat mengirim tautan yang sudah invalid, tetapi tidak menghidupkannya kembali.
+
+GET /me/account memakai identitas sesi, pemeriksaan ulang versi/status dan Resource whitelist nama/email/verifikasi/status perubahan email sendiri; tidak menerima user_id atau parameter tujuan. Beranda/Profil akun tanpa membership memakai konteks operasional, tanpa memanggil alur profil anggota. Akun multi-role dengan membership mempertahankan fitur anggota.
+
+Bootstrap CLI admin:bootstrap-super memerlukan --user-id dan --email eksplisit, target enabled/verified/aktivasi selesai, pemeriksaan target MySQL 8.4 aktual serta konfirmasi interaktif. Transaksi lock user → security_bootstraps first_super_admin; fence persisten dan keberadaan role super_admin mencegah pengulangan/paralel. Attach super_admin tanpa menghapus role/membership, auth_version +1, delete sessions dan audit actor NULL/source bootstrap. Seeder hanya metadata role, tidak menjalankan bootstrap. Tidak tersedia endpoint web atau opsi form untuk Super Admin baru. Penerapan pada database aplikasi memerlukan persetujuan dan akun target terpisah; lihat docs/SUPER_ADMIN_STAGE11.md.
+
+Aktivasi operasional pertama development memakai CLI `admin:activate-first-account --user-id=… --email=…`, hanya environment local/sorerunapp atau testing/sorerunapp_stage11_test, MySQL 8.4 loopback dan konfigurasi uncached. Target enabled/unverified, tanpa role/profil/membership/provisioning. Lock user → fence first_super_admin → invitation; fence mengikat user_id sejak penerbitan pertama dan tidak boleh diganti diam-diam. Penerbitan/accept memeriksa fence belum completed dan belum ada assignment Super. Cooldown 60 detik dan maksimal lima penerbitan/jam/akun dihitung dalam lock user, bukan cache bebas. Bootstrap tetap menolak unverified dan target lain yang berbeda dari kandidat terikat.
+
+Schema invitation existing ditambah purpose CHECK (`admin_invitation` atau `first_account_activation`), created_by nullable hanya untuk purpose awal; invitation Admin wajib memiliki issuer. Tidak ada provisioning/role otomatis untuk kandidat awal. Proof acak 32 byte/SHA-256/expiry 24 jam dan payload_encrypted/outbox existing digunakan ulang. POST publik stateful+CSRF `/auth/first-account-activation/accept` memeriksa purpose/email/hash/version/status/expiry/fence dan menolak sesi yang sudah login; field role/purpose/actor/user_id tidak diterima. GET `/activate-first-account` hanya form. Aktivasi memakai finalisasi yang sama untuk password/verifikasi/konsumsi/version/sessions/broker proof/audit, tanpa membership atau role. Reset membatalkan kedua purpose dan tetap tidak memverifikasi email. Audit awal actor NULL: security.first_activation_issued dan security.first_activation_accepted.
+
+Delivery awal dipisahkan pada queue `mail-bootstrap`. SMTP-nya selalu loopback Mailpit 127.0.0.1:1025 tanpa MAIL_URL, termasuk jika diambil worker generik; array fake hanya pada test terisolasi. LocalMailScope mengizinkan alamat non-@example.test hanya untuk delivery purpose awal dengan invitation issuer NULL dan kandidat terikat fence; pengecualian tidak berlaku bagi tipe lain. `admin:deliver-first-activation` memeriksa ID/email, transport, dan seluruh job queue tersebut sebelum worker database terbatas; tidak memproses mail/mail-local. Retry/sweep memakai proof semula, recheck stale sebelum kirim, tanpa SMTP dalam lock. Job tetap hanya ID delivery. Tidak memperluas pengiriman ke SMTP eksternal.
 
 ## 9. QR sebagai credential keanggotaan
 
@@ -459,7 +502,10 @@ Method bernilai qr/manual/reconciliation; status valid/voided. Counter event men
 
 | Tabel | Field utama | Aturan |
 | --- | --- | --- |
-| roles | id, code, name | UNIQUE code; seed member/staff/admin |
+| roles | id, code, name | UNIQUE code; CHECK member/staff/admin/super_admin; seed metadata role tanpa akun default |
+| admin_provisionings | user_id UNIQUE; created_by; request_key UUID; payload_hash; activated_at NULL; timestamps | FK users RESTRICT; UNIQUE(created_by,request_key); hash payload nama/email ternormalisasi mengikat idempotensi |
+| admin_invitations | id UUID; purpose; user_id; created_by NULL khusus aktivasi awal; email; token_hash; user_version; expires_at; consumed_at/revoked_at; timestamps | FK users RESTRICT; indeks user/time dan purpose/user; CHECK purpose/issuer; SHA-256 token acak 32 byte, expiry 24 jam |
+| security_bootstraps | name PK; user_id NULL sebelum kandidat terikat; completed_at NULL sebelum bootstrap | Singleton first_super_admin mengikat kandidat aktivasi awal dan menjadi pagar bootstrap persisten, tidak dihapus otomatis |
 | user_roles | user_id, role_id, assigned_by NULL, assigned_at | UNIQUE(user_id,role_id); FK |
 | policy_acknowledgements | id, user_id, policy_type, policy_version, acknowledged_at | Index user/type/version; bukan persetujuan marketing otomatis |
 | audit_logs | id, actor_user_id NULL, action, target_type, target_id NULL, occurred_at, reason_code/text, before JSON, after JSON, request_id | Index target/time dan actor/time; payload whitelist tanpa secret |
@@ -473,7 +519,7 @@ Audit menyimpan perubahan status, kuota, penugasan, credential ID/revocation, ko
 | Tabel | Isi |
 | --- | --- |
 | email_change_requests | user_id, email tujuan, token_hash, user_version, expires_at, consumed_at/revoked_at |
-| notification_deliveries | id, user_id NULL, type, dedupe_key UNIQUE, status, attempt_count, available_at, lease_until, sent_at, provider_reference NULL, last_error_code NULL; payload_encrypted TEXT NULL khusus proof reset sementara |
+| notification_deliveries | id, user_id NULL, type, dedupe_key UNIQUE, status, attempt_count, available_at, lease_until, sent_at, provider_reference NULL, last_error_code NULL; payload_encrypted TEXT NULL untuk proof reset/perubahan email sementara |
 | sessions | Session database Laravel; user_id, payload, last_activity; payload memuat auth_version |
 | password_reset_tokens | Tabel broker Laravel; email PK, token hash, created_at; user_id nullable FK dan auth_version nullable sebagai binding penerima/versi; token tanpa binding tidak dapat dikonsumsi |
 | jobs / failed_jobs / job_batches bila digunakan | Infrastruktur queue Laravel |
@@ -483,6 +529,18 @@ Audit menyimpan perubahan status, kuota, penugasan, credential ID/revocation, ko
 Notification menyimpan referensi penerima; alamat dan token verifikasi diselesaikan ketika mengirim, tidak diletakkan sebagai secret mentah dalam log. Pending change email mempunyai masa berlaku 60 menit pada baseline; pembersihan menghapus request lama yang tidak diperlukan. Expired reset token/session dibersihkan berkala.
 
 Khusus reset password, token dibuat oleh broker saat permintaan diterima dan proof outbox terenkripsi mengikuti lifecycle §8.3; worker tidak membuat token baru seperti pembentukan tautan verifikasi.
+
+### 11.8 Konten landing dan media editorial
+
+FR-19–21 memakai singleton landing_pages (id = 1 dengan CHECK), draft JSON schema_version 1, draft_version, updated_by dan published_revision_id. landing_page_revisions menyimpan snapshot content JSON immutable, published_by/at dan UNIQUE(landing_page_id, draft_version); FK pointer publik RESTRICT. landing_page_media menyimpan UUID publik unik, path privat unik, MIME, ukuran, dimensi, state ready/deleting dan actor; landing_page_revision_media memakai PK(revision_id, media_id), FK RESTRICT. Draft awal kosong; migration tidak membuat akun admin, konten contoh terbit atau media resmi.
+
+Schema JSON whitelist mempunyai header, hero, about, activities, gallery, faq, contact, footer, seo dan sections. Sections menyimpan tepat lima key unik dengan urutan serta visibility. Teks biasa, batas panjang/jumlah, URL sosial HTTPS tanpa credential dan referensi media UUID divalidasi backend. URL login tidak diterima. Section hidden/kosong disanitasi menjadi isi kosong pada snapshot; resource publik tidak mengembalikan draft, actor, path atau metadata internal. Caption/alt terikat versi konten; file tidak pernah ditimpa.
+
+Semua write konten mengikuti user → singleton page → media menurut ID. Tidak mengambil lock membership/event setelah user. Re-read auth_version/status/verified/role admin di dalam action; admin tidak memerlukan membership aktif. Save memeriksa versi dan menaikkannya atomik; konflik 409 tidak menulis. Publish memeriksa versi, validasi kelengkapan dan media, membentuk snapshot/pivot, pointer publik dan audit atomik (deadlock retry maksimal tiga). Publish ulang versi sama mengembalikan revisi existing, tanpa audit ganda. Tidak tersedia endpoint edit/delete revisi terbit. Perubahan draft tidak mengubah snapshot.
+
+Disk landing adalah storage/app/landing-private, terpisah foto anggota dan disk public, tanpa symlink/temporary URL publik. Upload JPEG/PNG/WebP ≤5 MB, sisi 16–6000 px, ≤16 megapixel serta anggaran memori decoder; GD dengan WebP diperlukan. Decode/reencode WebP kualitas 85, sisi maksimal 2400 px, membuang metadata. File I/O di luar lock, path UUID baru. Gagal transaksi menghapus file baru hanya jika tidak ada referensi database; bila status commit tidak pasti, file dipertahankan untuk rekonsiliasi, bukan menghapus file yang mungkin attached. Log orphan hanya referensi acak; tidak ada body, EXIF atau path internal.
+
+Delete memeriksa seluruh referensi draft dan revisi yang dipertahankan di bawah lock, lalu menyimpan tombstone deleting/audit. Penghapusan file dilakukan setelah commit; kegagalan menghasilkan 503 MEDIA_DELETE_PENDING dan DELETE ulang melanjutkan, sementara file tidak boleh direferensikan baru. Media publik hanya dilayani bila berada pada publikasi aktif; preview/library media membutuhkan sesi admin. Streaming no-store/nosniff, tanpa path internal. Tidak menambah cleanup massal/scheduler/worker pada tahap ini.
 
 ## 12. Kontrak HTTP awal
 
@@ -528,7 +586,7 @@ Path berikut menetapkan batas operasi; spesifikasi request/response lengkap ditu
 | GET /auth/email-verification/{id}/{hash} | Publik signed + expiry; readiness saja tanpa mutasi domain |
 | POST /auth/email-verification/{id}/{hash} | Publik signed + expiry + CSRF; JSON {}; cek email/auth_version/status di bawah lock, verifikasi/aktivasi idempotent; tanpa auto-login |
 | PATCH /me/profile | Update sendiri dengan data wajib |
-| POST /me/email-change; POST /me/email-change/verify | Password confirmation / verifikasi token tujuan |
+| POST /me/email-change; POST /me/email-change/verify | Sesi pemilik enabled/verified/current + CSRF; password confirmation / token tujuan; konfirmasi mencabut seluruh sesi |
 | GET /me/membership/card; GET /me/attendances | Kartu eligible / riwayat sendiri |
 | GET /events; GET /events/{event} | Member terautentikasi; event published yang diperbolehkan |
 | GET /staff/events | Admin/staff, sesuai penugasan |
@@ -570,6 +628,14 @@ Semua path pada tabel selain /sanctum menggunakan base /api/v1. Bila foto sendir
 
 QR asing/revoked menghasilkan error bisnis tanpa data pemilik. Jangan menggunakan 500 untuk semua kasus bisnis. Frontend tidak mengulang mutation otomatis secara buta setelah 419/timeout; refresh sesi/CSRF, periksa hasil, lalu retry secara aman.
 
+### 12.4 Landing publik, editor dan SSR
+
+GET /api/v1/public/landing-page mengembalikan publication null bila belum ada versi terbit; error layanan/schema tetap error tersanitasi, bukan null. Satu query join pointer/snapshot membaca publikasi. GET media publik memeriksa keanggotaan pada revisi aktif. /api/v1/admin/landing-page menyediakan GET draft/preview, PUT draft, POST publish, GET/POST media dan GET/DELETE media/{UUID}; sesi Sanctum stateful/current, enabled/verified, policy admin dan CSRF mutation wajib. Endpoint JSON dibatasi 128 KiB/depth 16; upload multipart terpisah. Rate limit per IP: baca admin 60/menit, save 30, publish/upload/delete 10, media 240; baca publik 120/menit. Retry-After mengikuti middleware. Kontrak authoritative di backend/docs/API_CONTRACT.md.
+
+Next.js (marketing)/page.tsx mengambil API publik di server dengan fetch no-store, credentials omit dan tanpa meneruskan cookie/header pengguna. React cache hanya memoization satu render untuk menyamakan metadata dan body; tidak ada cache konten lintas request/webhook. Async konten berada di Suspense; Cache Components/Partial Prefetching tetap aktif. Data privat/admin tetap dimuat browser memakai Axios/TanStack Query. ApplicationScope pada root merender landing tanpa AppProviders; route auth/member/admin berbagi satu AppProviders agar state transisi sesi tidak tertinggal pada layout yang dipertahankan Activity. Guard diterapkan per halaman, bukan menyembunyikan segmen server dari layout. SessionProvider/guard/cache privat existing tetap menjadi authority UI sesi. Preview client memakai API privat no-store dan blob URL dalam memori, dicabut saat unmount; optimizer publik tidak mengambil file draft.
+
+Gambar hasil backend WebP disajikan next/image dengan unoptimized, dimensi/sizes/loading terdefinisi, sehingga tidak memperluas izin SSRF optimizer untuk localhost atau membuka cookie preview. Metadata/canonical dari snapshot dan SITE_URL tervalidasi, bukan Host header/domain contoh. Landing diindeks hanya NODE_ENV production dan LANDING_INDEXABLE true; default false, auth/admin/preview tetap noindex. Kegagalan API tampil sebagai state error yang berbeda dari belum publikasi, tanpa fallback ke draft. SSR streaming dapat sudah berstatus HTTP 200; API tetap memberikan status kegagalan sebenarnya dan metadata error noindex.
+
 ## 13. Status, reaktivasi, dan lifecycle
 
 | Operasi | Tindakan transaksi |
@@ -594,6 +660,10 @@ Gunakan notification_deliveries sebagai outbox sederhana. Record pending dibuat 
 Worker mengambil lease melalui transaksi singkat, melepas lock, melakukan pengiriman, kemudian menandai sent/failed. Retry memakai backoff dan batas percobaan, misalnya lima percobaan sebagai parameter teknis awal. Tidak memegang lock domain ketika memanggil provider. Tautan dibuat untuk status/email terkini ketika dikirim; akun terhapus atau email berubah membatalkan delivery yang tidak relevan.
 
 Dedupe key mencegah record bisnis ganda; tidak menjamin exactly-once delivery eksternal. Gunakan idempotency provider bila tersedia. Jika timeout setelah provider menerima, email dapat terkirim ulang; tautan/aktivasi tetap idempotent. Admin melihat error code yang disanitasi, bukan token atau seluruh payload provider.
+
+Operasi development lokal (14 November 2026): launcher `composer dev` di backend mengelola child worker database/mail-local satu job per proses dan pemanggilan scheduler Laravel `schedule:run` sekali per menit, dengan file lock per project, kontrol status/stop/restart dan reload kode worker tiap job. Launcher tidak membuka server/database lain atau memasang service OS. Pada APP_ENV local, producer after-commit, sweep dan worker membatasi pengiriman otomatis pada akun @example.test; untuk perubahan email, alamat pending juga harus @example.test. Pekerjaan mail/queue lain tidak dipindahkan atau diproses launcher. Queue mail di luar local tetap sama. SMTP lokal wajib Mailpit loopback; startup memeriksa database aktual sorerunapp/MySQL 8.4 dan koneksi queue/cache.
+
+Scheduler local hanya menjalankan sweep outbox; cleanup global token/reset/request tidak didaftarkan pada database development berisi data existing. Expiry/version/consumption tetap diperiksa saat proof digunakan. Jadwal cleanup nonlocal tidak berubah; pengujian cleanup/kegagalan dilakukan pada database test terisolasi. Prosedur, observabilitas, batas Windows serta pemulihan ada pada backend/README.md. Tidak ada perubahan broker, transaksi, expiry token atau aturan bisnis.
 
 ### 14.2 Upload foto
 
@@ -667,7 +737,7 @@ Development dapat memakai Laragon atau Docker selama PHP 8.4, Node 24, dan MySQL
 
 Konfigurasi utama: APP_URL, frontend origin, SANCTUM_STATEFUL_DOMAINS, SESSION_DOMAIN/SECURE/SAME_SITE, SESSION_DRIVER, DB_*, QUEUE_CONNECTION, CACHE_STORE, MAIL_*, filesystem disk, MEMBER_NUMBER_PREFIX, dan NEXT_PUBLIC_API_BASE_URL. Nilai NEXT_PUBLIC_* adalah publik; jangan menaruh APP_KEY, password DB, atau API key email di sana.
 
-Pipeline: dependency dari lockfile → lint/typecheck/test → build → staging → migration kompatibel → deploy API/frontend → restart worker → smoke test. Perubahan schema memakai pendekatan expand/contract agar rollback aplikasi tidak membutuhkan penghapusan data. Seeder produksi tidak mereset sequence atau membuat akun admin default yang mudah ditebak. Bootstrap admin melalui prosedur CLI dan verifikasi email/reset awal yang aman.
+Pipeline: dependency dari lockfile → lint/typecheck/test → build → staging → migration kompatibel → deploy API/frontend → restart worker → smoke test. Perubahan schema memakai pendekatan expand/contract agar rollback aplikasi tidak membutuhkan penghapusan data. Seeder produksi tidak mereset sequence atau membuat akun admin default yang mudah ditebak. Bootstrap Super Admin pertama melalui CLI eksplisit §8.4; Admin operasional diundang oleh Super Admin. Reset password tidak menjadi pembuktian verifikasi email/aktivasi undangan.
 
 Release dapat dipicu per folder dalam monorepo, tetapi perubahan kontrak API memerlukan koordinasi. Upgrade patch/security harus melewati pengujian relevan. PRD/ARCHITECTURE tidak otomatis diubah oleh deploy.
 
@@ -761,3 +831,19 @@ Melengkapi §8.3/11.7/12.2 untuk FR-03: broker database Laravel, binding token p
 ## 24. Revisi transisi login 1.4 — 10 November 2026
 
 Sesuai instruksi pemilik produk, banner sesi aktif dan tautan lanjut manual pada login digantikan alur submit → Memeriksa akun… → /beranda. Transisi tetap aktif sampai halaman tujuan terbuka; aturan ini menggantikan ketentuan banner pada revisi sebelumnya. Kegagalan login tetap mempertahankan form/error. Tidak ada perubahan API, database, CSRF, atau syarat enabled/verified. Status Final dipertahankan.
+
+## 25. Revisi perubahan email 1.5 — 11 November 2026
+
+Melengkapi §8.3/11.7/12.2 untuk FR-04: pending email terverifikasi, pencabutan seluruh sesi setelah konfirmasi, outbox tujuan pending, batas permintaan dan cleanup. Kebijakan login ulang disetujui pemilik produk; stack dan status Final dipertahankan. Kode tahap ini disiapkan tanpa pemeriksaan eksekusi; bukan pernyataan keberhasilan migrasi atau pengujian.
+
+## 26. Revisi landing publik 1.6 — 14 November 2026
+
+FR-19–21 dan AC-31–35 disetujui pemilik produk. Melengkapi §5/7.1.1/11.8/12.4 untuk root publik, editor admin minimum, media dan SSR tanpa cache konten lintas request. Login/logout/expiry, event internal, stack dan status Final tetap. Implementasi disiapkan tanpa menjalankan pengujian/build/migration; rencana dan batas operasi pada docs/LANDING_PAGE_STAGE10.md. Perubahan worker/scheduler lokal existing dipertahankan.
+
+## 27. Revisi Super Admin 1.7 — 21 November 2026
+
+FR-22–24/AC-36–42 disetujui: role super_admin, provisioning Admin operasional, aktivasi undangan 24 jam terpisah dari reset, serta bootstrap satu kali. §7.2/8.4/11.6 dilengkapi tanpa Gate::before global, mengganti stack atau menggabungkan membership/role. Catatan implementasi dan batas eksekusi: docs/SUPER_ADMIN_STAGE11.md. Status Final dipertahankan; implementasi belum diverifikasi melalui eksekusi.
+
+## 28. Revisi aktivasi awal 1.8 — 21 November 2026
+
+Persetujuan pemilik produk melengkapi §8.4/11.6: purpose awal, CLI lokal, kandidat terikat fence, finalisasi tanpa pemberian role, queue Mailpit khusus dan migration additive. Tidak melemahkan syarat bootstrap atau mengubah verifikasi/reset existing. Hasil eksekusi dan status penerapan aktual dicatat pada Stage11; status Final tetap.

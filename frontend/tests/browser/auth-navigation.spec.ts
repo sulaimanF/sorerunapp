@@ -16,15 +16,8 @@ async function submitLogin(page: Page) {
   await expect(page).toHaveURL(`${FRONTEND}/beranda`);
 }
 
-test("root redirects to the clean login URL before rendering a page", async ({ page, context }) => {
-  await fixtureApi(context);
-  const redirect = await page.request.get("/", { maxRedirects: 0 });
-  expect(redirect.status()).toBe(307);
-  expect(new URL(redirect.headers().location, FRONTEND).pathname).toBe("/login");
-  await page.goto("/");
-  await expect(page).toHaveURL(`${FRONTEND}/login`);
-  await expect(page.getByRole("heading", { name: "Masuk ke sorerunapp" })).toBeVisible();
-});
+// Root SSR coverage moved to tests/landing/landing.spec.ts with an isolated HTTP API
+// fixture: browser route interception alone cannot isolate Next.js server fetches.
 
 for (const target of ["/profil", "/kartu", "https://untrusted.example", "/login?returnTo=%2Fprofil"]) {
   test(`old returnTo is removed and cannot change landing: ${target}`, async ({ page, context }) => {

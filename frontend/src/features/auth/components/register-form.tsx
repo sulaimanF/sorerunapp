@@ -188,13 +188,17 @@ export function RegisterForm() {
             optional
             error={errors.gender?.message}
           >
-            <Input
+            <select
               id="gender"
-              maxLength={32}
+              className="input"
               aria-invalid={!!errors.gender}
               aria-describedby={described("gender")}
               {...form.register("gender")}
-            />
+            >
+              <option value="">Tidak mengisi</option>
+              <option value="Laki-laki">Laki-laki</option>
+              <option value="Perempuan">Perempuan</option>
+            </select>
           </FormField>
         </fieldset>
         <fieldset className="stack-medium">

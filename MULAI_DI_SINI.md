@@ -1,5 +1,7 @@
 # sorerunapp — navigasi dan tampilan auth
 
+> Panduan paket historis ini sudah superseded untuk root: `/` sekarang landing publik, bukan redirect login. Jangan menjalankan installer navigasi lama pada versi landing. Setup terbaru pada README.md dan docs/LANDING_PAGE_STAGE10.md. Catatan hasil lama di bawah dipertahankan sebagai riwayat.
+
 Ekstrak isi paket ke root C:\laragon\www\sorerunapp setelah menghentikan npm run dev. Jalankan dari root Git Bash:
 
 ```bash

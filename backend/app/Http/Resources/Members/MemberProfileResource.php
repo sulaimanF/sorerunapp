@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Members;
 
+use App\Services\Auth\EmailChangeState;
 use App\Support\Http\RequestId;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,6 +19,7 @@ class MemberProfileResource extends JsonResource
             'phone' => $this->resource->phone, 'city' => $this->resource->city,
             'gender' => $this->resource->gender, 'profile_complete' => $this->resource->isComplete(),
             'updated_at' => $this->resource->updated_at?->utc()->toIso8601ZuluString(),
+            'email_change' => app(EmailChangeState::class)->forUser((int) $this->resource->user_id),
         ];
     }
 

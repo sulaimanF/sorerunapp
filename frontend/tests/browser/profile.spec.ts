@@ -21,12 +21,12 @@ async function fixture(context: BrowserContext) {
     loggedIn: boolean; ownerId: number; email: string; active: boolean; verified: boolean;
     profile: MemberProfile; patches: number; completed: number; reads: number; readFails: boolean;
     validationFails: boolean; expireOnSave: boolean; unverifyOnSave: boolean; commitThenDisconnect: boolean;
-    holdPatch: Promise<void> | null;
+    holdPatch: Promise<void> | null; passwordChanges: number;
   } = {
     loggedIn: true, ownerId: 42, email: "profile-stage07@example.test", active: true, verified: true,
-    profile: { full_name: initialName, birth_date: "2012-02-29", phone: "+6281234567890", city: "Kota Uji", gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z" },
+    profile: { full_name: initialName, birth_date: "2012-02-29", phone: "+6281234567890", city: "Kota Uji", gender: null, profile_complete: true, updated_at: "2026-10-24T00:00:00Z", email_change: { active_email: "profile-stage07@example.test", retry_after: 0, pending: null } },
     patches: 0, completed: 0, reads: 0, readFails: false, validationFails: false, expireOnSave: false,
-    unverifyOnSave: false, commitThenDisconnect: false, holdPatch: null,
+    unverifyOnSave: false, commitThenDisconnect: false, holdPatch: null, passwordChanges: 0,
   };
   const csrf = "profile-xsrf+";
   await context.addCookies([
@@ -59,6 +59,14 @@ async function fixture(context: BrowserContext) {
     if (!state.loggedIn) return fail(401, "UNAUTHENTICATED", "Silakan masuk untuk melanjutkan.");
     if (path === "/api/v1/auth/me") return respond(200, { data: session(), meta });
     if (path === "/api/v1/auth/logout") { state.loggedIn = false; return respond(204); }
+    if (path === "/api/v1/me/password" && request.method() === "POST") {
+      state.passwordChanges++;
+      const body = request.postDataJSON();
+      expect(Object.keys(body).sort()).toEqual(["current_password", "password", "password_confirmation"]);
+      if (body.current_password !== "Test-only-password-123") return fail(422, "CURRENT_PASSWORD_INVALID", "Password akun Anda saat ini tidak sesuai.", { current_password: ["Password akun Anda saat ini tidak sesuai."] });
+      state.loggedIn = false;
+      return respond(204);
+    }
     if (path === "/api/v1/me/membership/card") return respond(200, { data: { community_name: "Sore Running Club", full_name: state.profile.full_name, member_number: "SRC-000042", qr_payload: `src-member:v1:${"c".repeat(43)}`, issued_at: "2026-10-18T10:00:00Z" }, meta });
     if (path === "/api/v1/me/profile" && request.method() === "GET") {
       state.reads++;
@@ -237,4 +245,38 @@ test("completed verified profile refreshes pending membership status from the se
   await expect(page.getByText("Profil berhasil diperbarui.", { exact: true })).toBeVisible();
   await expect(page.getByText("Aktif", { exact: true })).toBeVisible();
   expect(state.patches).toBe(1);
+});
+
+test("member changes own password from Profile with validation and returns to login", async ({ page, context }) => {
+  const state = await fixture(context);
+  await page.setViewportSize({ width: 320, height: 720 });
+  await openProfile(page);
+  await page.getByRole("button", { name: "Ubah Password", exact: true }).click();
+  let form = page.getByRole("form", { name: "Form ubah password sendiri" });
+  await expect(form.getByLabel(/^Password Anda saat ini/)).toBeFocused();
+  await form.getByLabel(/^Password Anda saat ini/).fill("Do-not-preserve-after-cancel");
+  await form.getByRole("button", { name: "Batal Ubah Password" }).click();
+  await expect(form).toHaveCount(0);
+  await page.getByRole("button", { name: "Ubah Password", exact: true }).click();
+  form = page.getByRole("form", { name: "Form ubah password sendiri" });
+  await expect(form.getByLabel(/^Password Anda saat ini/)).toHaveValue("");
+  await form.getByLabel(/^Password Anda saat ini/).fill("wrong");
+  await form.getByLabel(/^Password baru/).fill("short");
+  await form.getByLabel(/^Konfirmasi password baru/).fill("short");
+  await form.getByRole("button", { name: "Simpan Password Baru" }).click();
+  expect(state.passwordChanges).toBe(0);
+  await form.getByLabel(/^Password baru/).fill("New-member-password-123");
+  await form.getByLabel(/^Konfirmasi password baru/).fill("New-member-password-123");
+  await form.getByRole("button", { name: "Simpan Password Baru" }).click();
+  await expect(form.getByLabel(/^Password Anda saat ini/)).toBeFocused();
+  await expect(form.getByLabel(/^Password baru/)).toHaveValue("New-member-password-123");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: ".next/member-password-320.png" });
+  await form.getByLabel(/^Password Anda saat ini/).fill("Test-only-password-123");
+  await form.getByRole("button", { name: "Simpan Password Baru" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByText("Password berhasil diubah dan seluruh sesi telah diakhiri.", { exact: false })).toBeVisible();
+  expect(state.patches).toBe(0);
+  expect(state.passwordChanges).toBe(2);
+  expect(await page.evaluate(() => localStorage.length + sessionStorage.length)).toBe(0);
 });

@@ -13,7 +13,7 @@ export const browserSessionSchema = z.object({
     email: z.string(),
     email_verified: z.boolean(),
   }),
-  roles: z.array(z.enum(["member", "staff", "admin"])),
+  roles: z.array(z.enum(["member", "staff", "admin", "super_admin"])),
   profile_complete: z.boolean(),
   membership: z
     .object({

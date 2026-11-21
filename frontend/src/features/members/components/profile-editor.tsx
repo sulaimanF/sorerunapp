@@ -132,7 +132,14 @@ export function ProfileEditor({ profile, userId }: { profile: MemberProfile; use
           <Input id="city" autoComplete="address-level2" required maxLength={100} aria-invalid={!!errors.city} aria-describedby={described("city")} {...form.register("city")} />
         </FormField>
         <FormField name="gender" label="Jenis kelamin" optional error={errors.gender?.message}>
-          <Input id="gender" maxLength={32} aria-invalid={!!errors.gender} aria-describedby={described("gender")} {...form.register("gender")} />
+          <select id="gender" className="input" aria-invalid={!!errors.gender} aria-describedby={described("gender")} {...form.register("gender")}>
+            <option value="">Tidak mengisi</option>
+            <option value="Laki-laki">Laki-laki</option>
+            <option value="Perempuan">Perempuan</option>
+            {profile.gender && !["Laki-laki", "Perempuan"].includes(profile.gender) && (
+              <option value={profile.gender}>{profile.gender} (tersimpan)</option>
+            )}
+          </select>
         </FormField>
       </fieldset>
       {outcomeUnknown && <Button type="button" variant="outline" disabled={busy} onClick={() => void checkSavedProfile()}>

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\AssignRequestId;
+use App\Http\Middleware\ValidateAdminAccountJson;
+use App\Http\Middleware\ValidateEmailChangeJson;
 use App\Http\Middleware\ValidateLoginJson;
 use App\Http\Middleware\ValidatePasswordResetJson;
 use App\Http\Middleware\ValidateProfileJson;
@@ -26,12 +28,21 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('outbox:dispatch --limit=100')->everyMinute()->withoutOverlapping(5);
-        $schedule->command('auth:clear-resets users')->hourly()->withoutOverlapping(5);
+        $outbox = $schedule->command('outbox:dispatch --limit=100')->everyMinute()->withoutOverlapping(5);
+        if (app()->environment('local')) {
+            $outbox->appendOutputTo(storage_path('logs/local-scheduler.log'));
+        }
+        // Local development retains existing proofs; expiry is enforced when a proof is used.
+        if (! app()->environment('local')) {
+            $schedule->command('auth:clear-resets users')->hourly()->withoutOverlapping(5);
+            $schedule->command('email-changes:prune')->hourly()->withoutOverlapping(5);
+        }
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-        $middleware->prependToGroup('api', [AssignRequestId::class, ValidatePasswordResetJson::class, ValidateRegistrationJson::class, ValidateLoginJson::class, ValidateProfileJson::class]);
+        // API/media requests also need JSON 401 when Accept is image/* or */*.
+        $middleware->redirectGuestsTo(fn (Request $request): ?string => $request->is('api/*') ? null : '/login');
+        $middleware->prependToGroup('api', [AssignRequestId::class, ValidateAdminAccountJson::class, ValidateEmailChangeJson::class, ValidatePasswordResetJson::class, ValidateRegistrationJson::class, ValidateLoginJson::class, ValidateProfileJson::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
