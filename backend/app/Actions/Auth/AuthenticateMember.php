@@ -8,6 +8,7 @@ use App\Data\Auth\LoginMemberData;
 use App\Enums\AccountStatus;
 use App\Exceptions\ApiProblem;
 use App\Models\User;
+use App\Services\Administration\AdminInvitationState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -39,6 +40,10 @@ class AuthenticateMember
             if ($current === null || $current->status !== AccountStatus::Enabled
                 || ! hash_equals($checkedHash, $current->password)) {
                 throw $this->invalidCredentials();
+            }
+
+            if (AdminInvitationState::pending($current)) {
+                throw new ApiProblem('ADMIN_ACTIVATION_REQUIRED', 'Aktifkan akun melalui undangan Admin. Hubungi Super Admin jika tautan tidak tersedia.', 403);
             }
 
             if ($current->email_verified_at === null) {

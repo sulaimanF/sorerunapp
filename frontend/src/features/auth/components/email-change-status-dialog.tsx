@@ -7,13 +7,14 @@ import { LoaderCircle } from "lucide-react";
 import { Alert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { getMemberProfile } from "@/features/members/services";
+import { getOwnAccount } from "../account";
 import { ApiError, normalizeApiError } from "@/lib/errors";
 import { sessionKey } from "@/lib/query-client";
 import type { BrowserSession } from "../types";
 import type { EmailChangeStatus } from "../email-change";
 import { useCountdown } from "../hooks/use-countdown";
 
-export function EmailChangeStatusDialog({ userId, disabled }: { userId: number; disabled: boolean }) {
+export function EmailChangeStatusDialog({ userId, disabled, scope = "profile" }: { userId: number; disabled: boolean; scope?: "profile" | "account" }) {
   const client = useQueryClient();
   const [checking, setChecking] = useState(false);
   const [snapshot, setSnapshot] = useState<EmailChangeStatus | null>(null);
@@ -33,9 +34,9 @@ export function EmailChangeStatusDialog({ userId, disabled }: { userId: number; 
     setChecking(true);
     setProblem(null);
     try {
-      const profile = await client.fetchQuery({
-        queryKey: ["members", "profile", userId],
-        queryFn: ({ signal }) => getMemberProfile(signal),
+      const profile = await client.fetchQuery<{ email_change?: EmailChangeStatus | null }>({
+        queryKey: scope === "account" ? ["auth", "account", userId] : ["members", "profile", userId],
+        queryFn: ({ signal }) => scope === "account" ? getOwnAccount(signal) : getMemberProfile(signal),
         staleTime: 0,
         meta: { requiresSession: true },
       });

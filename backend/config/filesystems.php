@@ -30,6 +30,14 @@ return [
 
     'disks' => [
 
+        // Never symlink this disk: unpublished editorial files require admin auth.
+        'landing' => [
+            'driver' => 'local',
+            'root' => storage_path('app/landing-private'),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

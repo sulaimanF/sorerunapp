@@ -2,7 +2,7 @@
 
 Panduan kerja AI untuk pengembangan aplikasi membership Sore Running Club (SRC). Letakkan file ini di root repository sorerunapp, sejajar dengan PRD.md, ARCHITECTURE.md, SYSTEM_DESIGN.md, frontend/, dan backend/.
 
-Versi panduan: 1.3 — 10 November 2026. Panduan ini disusun dari tiga dokumen final yang telah disetujui pemilik produk. Aturan di dalamnya mengatur cara implementasi; tidak memberikan kewenangan mengubah keputusan produk secara sepihak.
+Versi panduan: 1.4 — 14 November 2026. Panduan ini disusun dari tiga dokumen final yang telah disetujui pemilik produk. Aturan di dalamnya mengatur cara implementasi; tidak memberikan kewenangan mengubah keputusan produk secara sepihak.
 
 Status: **Final — disetujui pemilik produk sebagai panduan kerja AI untuk pengembangan sorerunapp.**
 
@@ -59,9 +59,10 @@ Gunakan npm di frontend sebagai baseline kecuali repo telah menetapkan satu pack
 
 - Satu komunitas; membership gratis tanpa kedaluwarsa otomatis. Registrasi sekali; email terverifikasi dan profil wajib lengkap sebelum aktivasi otomatis, tanpa approval admin.
 - Login hanya setelah email terverifikasi dan akun enabled. Pendaftar unverified hanya memakai flow publik verifikasi/resend; tidak membuat sesi login. GET tautan read-only, POST konfirmasi memakai signed URL + CSRF, tanpa auto-login. Sesi lama unverified ditolak/dicabut dan cache privat dibersihkan. Resend publik menerima email dengan respons generik, cooldown, dan limit email/IP.
-- Navigasi auth memakai tujuan tetap: / → /login, login berhasil → /beranda, logout/sesi berakhir/tamu pada route privat → /login. Jangan menambahkan kembali returnTo atau tujuan login dari query/storage. Pertahankan perpindahan menu tanpa login ulang selama sesi valid. Login berhasil mempertahankan loading sampai beranda terbuka, tanpa banner sesi aktif atau aksi lanjut manual sesuai revisi SYSTEM_DESIGN 1.5; susunan footer auth tetap.
+- Root / menampilkan landing page publik untuk tamu maupun pengguna login. Navigasi auth tetap: login berhasil → /beranda, logout/sesi berakhir/tamu pada route privat → /login. Jangan menambahkan kembali returnTo atau tujuan login dari query/storage. Pertahankan perpindahan menu tanpa login ulang selama sesi valid. Login berhasil mempertahankan loading sampai beranda terbuka, tanpa banner sesi aktif atau aksi lanjut manual sesuai revisi SYSTEM_DESIGN 1.5; susunan footer auth tetap.
 - Nama, tanggal lahir, telepon, dan domisili wajib; foto opsional. Anggota di bawah umur diperbolehkan. Jangan menambah NIK/KTP, data kesehatan, atau batas usia minimum otomatis.
 - Akun, profil, membership, credential QR, event, dan attendance adalah domain terpisah. Satu akun maksimum satu membership pada komunitas ini.
+- Provisioning akun Admin hanya melalui izin Super Admin yang diperiksa ulang dalam transaksi. Registrasi publik/form provisioning tidak memberikan Super Admin. Bootstrap pertama harus memakai ID/email eksplisit, satu kali dan diaudit; jangan menjalankannya atau memilih akun sasaran tanpa otorisasi. Akun operasional tidak diberi biodata, membership atau QR fiktif.
 - Nomor member unik, stabil, tidak dipakai ulang. Reaktivasi ended oleh admin memakai membership dan nomor yang sama selama belum dianonimkan.
 - QR tetap, dapat dicetak/screenshot, dapat dicabut/diganti. QR tidak berisi PII atau token login dan tidak memberikan hak login.
 - Event internal gratis dengan kuota positif yang ditentukan admin, tanpa RSVP. Kuota dikonsumsi attendance valid saat commit, bukan saat preview.
@@ -257,3 +258,5 @@ Revisi 1.1 tetap final: menyelaraskan alur email-before-login dan acuan Sunset y
 Revisi 1.2 tetap final: navigasi auth tanpa returnTo dan susunan tautan auth yang telah disetujui pemilik produk. Backend/session policy serta palet Sunset tetap.
 
 Revisi 1.3 tetap final: mengikuti instruksi pemilik produk untuk login langsung ke beranda tanpa banner sesi aktif/aksi lanjut manual. Uji transisi lambat, guard saat pemeriksaan sesi, dan kegagalan login; backend/session policy serta palet Sunset tetap.
+
+Revisi 1.4 tetap final: root / menjadi landing page publik sesuai persetujuan pemilik produk. Tujuan login/logout/expiry, tanpa returnTo, aturan pengujian dan keputusan lainnya tetap.

@@ -2,7 +2,7 @@
 
 Tanggal: 11 November 2026. Acuan FR-04, BR-16/BR-17, AC-17; ARCHITECTURE §8.3/11.7/12.2; SYSTEM_DESIGN §11.4. Kebijakan konfirmasi mencabut seluruh sesi dan login ulang dengan email baru disetujui pemilik produk.
 
-**Status: migration Stage 09 diterapkan dan smoke test lulus pada aplikasi development lokal.** Pengujian terisolasi sebelumnya tetap dicatat terpisah di bawah. Penerapan pada database aplikasi development mendapat persetujuan pemilik produk pada sesi lanjutan 11 November 2026. Tidak commit/push/deploy atau mengirim email kepada pengguna nyata. Worker umum dan scheduler kontinu tidak diaktifkan; pengiriman smoke test memakai job sintetis yang diisolasi. Hasil ini tidak menyatakan kesiapan produksi atau seluruh FR-04/MVP selesai; foto dan domain admin/event tetap di luar tahap.
+**Status: migration Stage 09 diterapkan dan smoke test lulus pada aplikasi development lokal.** Pengujian terisolasi sebelumnya tetap dicatat terpisah di bawah. Penerapan pada database aplikasi development mendapat persetujuan pemilik produk pada sesi lanjutan 11 November 2026. Operasi worker/scheduler lokal berkelanjutan ditambahkan dan diuji pada 14 November 2026, dengan scope akun sintetis; lihat bagian operasional terakhir dan backend/README.md. Tidak commit/push/deploy atau mengirim email kepada pengguna nyata. Hasil ini tidak menyatakan kesiapan produksi atau seluruh FR-04/MVP selesai; foto dan domain admin/event tetap di luar tahap.
 
 ## Implementasi
 
@@ -168,3 +168,51 @@ Tombol Periksa Status Email sekarang menampilkan spinner/“Memeriksa status ema
 Implementasi UI dipisahkan ke email-change-status-dialog.tsx, memakai Radix Dialog, spinner dan styling existing. Endpoint, backend/database dan aturan perubahan email tetap sama. SYSTEM_DESIGN §11.4 dilengkapi sesuai permintaan pemilik produk. Tiga skenario browser tambahan disiapkan untuk popup tanpa pending/pending/kedaluwarsa, loading, data terbaru, cooldown, keyboard/fokus, 320 px dan input tetap tersimpan; skenario error existing ditambah assertion bahwa popup tidak dibuka.
 
 **Pembaruan loading/popup ini belum diverifikasi melalui eksekusi.** Mengikuti instruksi tidak menjalankan test dari percakapan sebelumnya, sesi ini hanya meninjau kode/diff secara statis; tidak menjalankan test, lint, typecheck, build, aplikasi, worker, atau operasi database. Hasil 11 test pada paragraf sebelumnya berlaku untuk versi sebelum penambahan popup ini.
+
+## Operasi worker, scheduler dan email lokal — 14 November 2026
+
+Panduan harian authoritative: **[backend/README.md](../backend/README.md)**, dengan urutan terminal pada [README root](../README.md). Launcher `composer dev` sekarang mengelola worker database/mail-local dan tick scheduler Laravel tiap menit; source berada pada app/Console/Commands/RunLocalBackground.php, bukan cache/storage sementara. Tidak membuka server/database/inbox kedua, memasang service OS, mengubah .env aktual atau menjalankan migration/seeder.
+
+Temuan awal: Git sudah clean pada dev commit 35b8169; implementasi Stage 09 dan perubahan pengguna sudah committed. Runtime efektif APP_ENV local, MySQL 8.4.3/database sorerunapp pada loopback, SMTP Mailpit 127.0.0.1:1025, frontend localhost:3000/API localhost:8000. Tidak ada worker/scheduler project yang berjalan; jobs dan failed_jobs 0, seluruh delivery existing sent/cancelled. Composer dev scaffold mendengarkan default queue, bukan queue mail yang dipilih producer, dan belum menyertakan scheduler; README masih template Laravel.
+
+Perbaikan: producer after-commit memilih mail-local untuk akun @example.test (pending email juga wajib @example.test); sweep/worker mengikuti scope yang sama. Pekerjaan queue mail/queue lain dan data penerima existing tidak dipindahkan/dihapus/diproses. Guard launcher memeriksa environment, database/koneksi aktual, queue/cache, SMTP, origin serta jenis job/penerima. Mutex mencegah instance ganda. Kontrol status/stop/restart/pause/resume worker tersedia melalui Composer. Worker satu job per child memuat ulang kode tiap job; scheduler menjalankan schedule:run sekali per menit dan mencatat task nyata. Cleanup global tidak didaftarkan pada local agar token/request existing tidak terhapus; expiry tetap berlaku dan jadwal nonlocal tetap sama. ARCHITECTURE §14.1 mencatat detail lokal ini. PRD/SYSTEM_DESIGN/AGENTS/API tidak membutuhkan perubahan.
+
+Review delivery mempertahankan lease 180 detik, backoff 60/300/900/3600, maksimum lima attempt, enqueue setelah commit dan SMTP di luar row lock. Job hanya membawa delivery ID; proof tetap terenkripsi di outbox dan tidak diterbitkan ulang saat retry. Log baru hanya ID/attempt/kode teknis serta jumlah sweep. Provider failure yang ditangani menghasilkan failed pada outbox, bukan otomatis failed_jobs; pending sweep menangani pemulihannya.
+
+### Hasil aktual
+
+| Pemeriksaan | Hasil |
+| --- | --- |
+| Preflight aplikasi dan test | sorerunapp dan sorerunapp_test terpisah pada MySQL 8.4.3; schema sudah Ran, tidak ada migration dijalankan |
+| Suite outbox/delivery/local terpilih | 44 test, 220 assertion lulus, exit 0; termasuk kegagalan provider/queue, retry, lease, rollback, proof stale/expired/revoked/consumed dan guard lokal |
+| Pemeriksaan lokal terakhir | LocalBackgroundTest lulus 10 test, 29 assertion, exit 0; mencakup antrean mail-local, SQL scope pending, pengiriman fake menuju alamat pending sintetis dan exception job pada koneksi database queue nyata |
+| Pint --test pada delapan file PHP terkait | Lulus; format diperbaiki terlebih dahulu pada file baru/terkait |
+| Composer validate --no-check-publish | Lulus; tidak mengubah dependency/lockfile |
+| Lint frontend, typecheck dan lint script smoke terakhir | Lulus; perubahan frontend sesi ini hanya script operasional pengujian |
+| Browser nyata pada database aplikasi | Run 8f418500a30a07231aa314fafefa14e3 lulus, exit 0, tanpa fixture API; registrasi browser → after-commit → worker berjalan → Mailpit tanpa command pengiriman per request |
+| Tautan autentikasi | Tautan dari inbox lokal dikonfirmasi melalui browser, akun terverifikasi/aktif dan login langsung beranda |
+| Worker berhenti/dijalankan kembali | Pause menghentikan child worker; request browser baru pending dan mempunyai job tetapi belum masuk inbox; resume mengirim otomatis |
+| Scheduler terpisah dari enqueue normal | Helper hanya untuk akun sintetis baru melewatkan callback dispatch pada prosesnya sendiri; pending tanpa job teramati. Tick scheduler berikutnya menjalankan task, menjadwalkan delivery dan worker mengirim email. Data existing/timestamp tidak dimanipulasi |
+| Restart/stop/start | Restart generation berubah dan worker aktif; stop seluruh launcher selesai exit 0, running false/jobs 0, lalu composer dev dijalankan kembali. Instance kedua ditolak tanpa membuat child tambahan |
+| Data existing | Digest users/profil/membership/role/persetujuan/outbox/token/request/credential existing cocok dengan baseline sebelum smoke; pemeriksaan baseline 12 user awal juga tetap cocok |
+| git diff --check | Lulus |
+
+Verifikasi scheduler memakai log task outbox yang benar-benar dieksekusi, jumlah queued, dan penerimaan email untuk delivery tanpa producer job; tidak disimpulkan hanya dari PID scheduler hidup. Injeksi provider failure/retry/lease dilakukan di sorerunapp_test dengan fake email; tidak mematikan Mailpit atau mengubah layanan pengguna untuk memaksa kegagalan. Test failed_jobs memakai queue unik pada database test nyata dan exception teknis sintetis sebelum klaim delivery: job masuk failed_jobs, outbox tetap pending/attempt 0 untuk pemulihan. Hanya row queue/failed_jobs milik test tersebut dibersihkan, bukan antrean aplikasi. Output SYNTHETIC_WORKER_FAILURE adalah injeksi yang diharapkan; assertion lulus.
+
+Run awal skrip berhenti karena ekspektasi status registrasi 202, sementara kontrak aktual adalah 201; ekspektasi skrip diperbaiki. Run berikutnya membuktikan pengiriman/recovery tetapi menemukan restart child scheduler Windows yang macet. Implementasi akhir menghindari scheduler daemon yang perlu dihentikan paksa: child worker/tick selesai sendiri; output pipe sementara Windows tidak digunakan. Run terakhir dan stop/start penuh berhasil. Saat memperbaiki run awal, hanya pohon PID launcher uji yang sudah dicocokkan dihentikan; Mailpit/API/frontend tidak ikut dihentikan.
+
+### Data sintetis dan proses akhir
+
+Semua akun berikut bernama Anggota Uji Background dan dipertahankan tanpa cleanup massal. Pola email `background-<run>-<suffix>@example.test`; password acak tidak dicatat.
+
+| Run | User ID dan suffix | Nomor member |
+| --- | --- | --- |
+| 972fe0f0f51e71bd218eaa560fab7c14 | 13 normal; run awal skrip | Belum aktif |
+| 5a876821062b2955e3d2ce20fd19993e | 14 normal, 15 paused, 16 gap; run diagnosis restart | ID 14 SRC-000011; lainnya belum aktif |
+| 8f418500a30a07231aa314fafefa14e3 | 17 normal, 18 paused, 19 gap; run akhir lulus | ID 17 SRC-000012; lainnya belum aktif |
+
+Hasil akhir/manifest baseline: backend/storage/app/private/local-background-smoke/8f418500a30a07231aa314fafefa14e3-result.json. Empat delivery run akhir (37–40) sent dengan satu attempt, jobs 0, failed_jobs 0; next_value nomor member 13. Tidak mengembalikan sequence atau memakai ulang nomor yang diterbitkan.
+
+Pada pemeriksaan akhir launcher baru berjalan (supervisor PID 7216; worker PID berubah tiap job/polling, scheduler_pid null di antara tick), frontend localhost:3000 PID 14028, API localhost:8000 PID 7492, Mailpit existing PID 4028. Child launcher uji lama telah dihentikan. Status dan PID ini hanya snapshot sesi, bukan startup otomatis OS. Jika terminal/proses tool ditutup, jalankan kembali composer dev pada PowerShell sendiri; prosedur launcher telah diuji. Tidak ada jaminan proses hidup setelah komputer/terminal/sesi tool berakhir.
+
+Pengoperasian development untuk akun sintetis siap dipakai. Penerima selain @example.test tetap tidak diproses launcher, cleanup global lokal tidak aktif, dan tidak ada klaim kesiapan produksi. Tidak melakukan deploy/commit/push atau memulai tahap fitur berikutnya. Suite penuh/concurrency tidak diulang karena transaksi domain tidak berubah. Hasil browser ini menguji registrasi/verifikasi/queue, bukan audit ulang UI popup pemeriksaan email; catatan UI sebelumnya tetap berlaku.

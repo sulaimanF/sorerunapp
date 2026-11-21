@@ -9,4 +9,5 @@ enum RoleCode: string
     case Member = 'member';
     case Staff = 'staff';
     case Admin = 'admin';
+    case SuperAdmin = 'super_admin';
 }

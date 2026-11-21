@@ -12,12 +12,14 @@ use App\Models\NotificationDelivery;
 use App\Models\User;
 use App\Notifications\MembershipActivated;
 use App\Notifications\VerifyMembershipEmail;
+use App\Services\Administration\AdminInvitationNotification;
 use App\Services\Auth\EmailChangeNotification;
 use App\Services\Auth\EmailVerificationUrl;
 use App\Services\Auth\PasswordResetNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use LogicException;
 use Throwable;
@@ -32,6 +34,14 @@ class DeliverNotification
     {
         if (DB::transactionLevel() !== 0) {
             throw new LogicException('External delivery must run outside a database transaction.');
+        }
+        $scope = app(LocalMailScope::class);
+        if ($scope->active()) {
+            $row = NotificationDelivery::query()->find($id);
+            if ($row === null || ! $scope->allows($row)) {
+                return;
+            }
+            $scope->assertTransport();
         }
         $claim = $this->claim($id);
         if ($claim === null) {
@@ -56,7 +66,7 @@ class DeliverNotification
 
                 return;
             }
-        } elseif (! in_array($delivery->type, ['password_reset', 'email_change'], true)) {
+        } elseif (! in_array($delivery->type, ['password_reset', 'email_change', 'admin_invitation', 'first_account_activation'], true)) {
             $this->cancel($claim, 'UNSUPPORTED_NOTIFICATION_TYPE');
 
             return;
@@ -68,6 +78,22 @@ class DeliverNotification
             return;
         }
         try {
+            if (in_array($delivery->type, ['admin_invitation', 'first_account_activation'], true)) {
+                if ($delivery->type === 'first_account_activation' && ! (app()->environment('testing') && config('mail.default') === 'array')) {
+                    // Initial local activation never uses an external SMTP transport, even with a generic worker.
+                    $scope->assertTransport();
+                }
+                $notification = app(AdminInvitationNotification::class)->forDelivery($delivery, $user);
+                if ($notification === null) {
+                    $this->cancel($claim, 'ADMIN_INVITATION_NOT_CURRENT');
+
+                    return;
+                }
+                Notification::sendNow($user, $notification);
+                $this->sent($claim);
+
+                return;
+            }
             if ($delivery->type === 'email_change') {
                 $service = app(EmailChangeNotification::class);
                 $change = $user->email_verified_at === null ? null : $service->currentRequest($delivery, $user);
@@ -135,10 +161,13 @@ class DeliverNotification
 
     public function sent(DeliveryClaim $claim): void
     {
-        $this->fence($claim)->update([
+        $updated = $this->fence($claim)->update([
             'status' => NotificationDeliveryStatus::Sent->value, 'sent_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'),
             'lease_until' => null, 'last_error_code' => null, 'payload_encrypted' => null,
         ]);
+        if ($updated > 0) {
+            Log::info('Outbox delivery sent.', ['delivery_id' => $claim->id, 'attempt' => $claim->attempt]);
+        }
     }
 
     public function fail(DeliveryClaim $claim, string $code): void
@@ -151,7 +180,9 @@ class DeliverNotification
         if ($claim->attempt >= self::MAX_ATTEMPTS) {
             $changes['payload_encrypted'] = null;
         }
-        $this->fence($claim)->update($changes);
+        if ($this->fence($claim)->update($changes) > 0) {
+            Log::warning('Outbox delivery retry state.', ['delivery_id' => $claim->id, 'attempt' => $claim->attempt, 'code' => $code]);
+        }
     }
 
     public function cancel(DeliveryClaim $claim, string $code): void

@@ -7,10 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/shared/feedback";
 import { MembershipStatus } from "./membership-status";
 import { ResendButton } from "@/features/auth/components/resend-button";
+import { canManageAdministration, canProvisionAdmins } from "@/features/auth/permissions";
 
 export function DashboardScreen() {
   const { session } = useSession();
   if (!session) return null;
+  if (session.membership === null) return <div className="stack-large">
+    <header><p className="eyebrow text-brand">Akun operasional SRC</p><h1 className="page-heading">Halo, {session.user.full_name}.</h1><p>Akses pekerjaan sesuai izin akun Anda. Akun operasional tidak memerlukan keanggotaan atau kartu QR.</p></header>
+    <Card className="stack-medium"><h2 className="text-heading-2">Administrasi</h2>
+      <div className="flex flex-wrap gap-3">
+        {canManageAdministration(session) && <Button asChild><Link href="/admin/landing-page">Kelola Landing Page</Link></Button>}
+        {canProvisionAdmins(session) && <Button variant="outline" asChild><Link href="/admin/accounts/new">Buat Akun Admin</Link></Button>}
+        {canProvisionAdmins(session) && <Button variant="outline" asChild><Link href="/admin/accounts">Daftar Akun Admin</Link></Button>}
+        <Button asChild><Link href="/profil">Informasi Akun</Link></Button>
+      </div>
+    </Card>
+  </div>;
   const eligible =
     session.user.email_verified &&
     session.profile_complete &&

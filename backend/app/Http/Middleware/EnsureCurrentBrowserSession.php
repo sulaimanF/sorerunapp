@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Enums\AccountStatus;
 use App\Exceptions\ApiProblem;
 use App\Models\User;
+use App\Services\Administration\AdminInvitationState;
 use App\Support\Auth\BrowserSession;
 use Closure;
 use Illuminate\Http\Request;
@@ -38,6 +39,11 @@ class EnsureCurrentBrowserSession
         if (! is_int($version) || $version !== $user->auth_version) {
             BrowserSession::end($request);
             throw new ApiProblem('SESSION_EXPIRED', 'Sesi sudah berakhir. Silakan masuk kembali.', 401);
+        }
+
+        if (AdminInvitationState::pending($user)) {
+            BrowserSession::end($request);
+            throw new ApiProblem('ADMIN_ACTIVATION_REQUIRED', 'Aktifkan akun melalui undangan Admin.', 403);
         }
 
         if ($user->email_verified_at === null) {

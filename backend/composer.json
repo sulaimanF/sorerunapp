@@ -43,8 +43,13 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "@php artisan dev"
+            "@php artisan dev:background"
         ],
+        "dev:status": "@php artisan dev:background status",
+        "dev:stop": "@php artisan dev:background stop",
+        "dev:restart": "@php artisan dev:background restart",
+        "dev:pause-worker": "@php artisan dev:background pause-worker",
+        "dev:resume-worker": "@php artisan dev:background resume-worker",
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"

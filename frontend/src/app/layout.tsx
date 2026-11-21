@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
-import { AppProviders } from "@/providers/app-providers";
+import { ApplicationScope } from "@/providers/application-scope";
 import "./globals.css";
 const jakarta = localFont({
   src: "../assets/fonts/PlusJakartaSans-Variable.ttf",
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <a href="#main-content" className="skip-link">
           Lewati ke konten utama
         </a>
-        <AppProviders>{children}</AppProviders>
+        <ApplicationScope>{children}</ApplicationScope>
       </body>
     </html>
   );

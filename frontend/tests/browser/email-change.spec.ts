@@ -79,7 +79,8 @@ for (const code of [-1, 419, 429]) {
     const state = await emailChangeFixture(context); state.error = code;
     await page.goto("/profil"); await openChange(page); await fillChange(page);
     await page.getByRole("button", { name: "Kirim Verifikasi Email Baru" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    // The empty Next route announcer is also role=alert; wait for the actual request error.
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible();
     await expect(page.getByLabel(/^Email baru/)).toHaveValue(newEmail);
     if (code === 429) await expect(page.getByRole("button", { name: /Tunggu 7\d detik/ })).toBeDisabled();
     expect(state.requests).toBe(1);

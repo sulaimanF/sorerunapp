@@ -1,5 +1,7 @@
 # Panduan penerapan navigasi dan tampilan auth
 
+> **Superseded untuk root /**: gunakan README dan docs/LANDING_PAGE_STAGE10.md. Installer lama tidak boleh dipakai pada versi landing publik. Riwayat di bawah bukan hasil pengujian landing.
+
 Tanggal 25 Oktober 2026. Menerapkan preview yang disetujui: posisi tautan pada Login, Verifikasi Email, dan Kirim Ulang Verifikasi. Login berhasil selalu ke beranda, seluruh pengalihan ke login memakai URL bersih tanpa returnTo.
 
 ## 1. Terapkan perubahan

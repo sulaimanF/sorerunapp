@@ -11,18 +11,21 @@ import { ResendButton } from "@/features/auth/components/resend-button";
 import { EmailChangeForm } from "@/features/auth/components/email-change-form";
 import { getMemberProfile } from "../services";
 import { ProfileEditor } from "./profile-editor";
+import { OperationalAccount } from "@/features/auth/components/operational-account";
+import { OwnPasswordControl } from "@/features/administration/components/administrative-password-form";
 
 export function ProfileScreen() {
   const { session } = useSession();
   const query = useQuery({
     queryKey: ["members", "profile", session?.user.id],
     queryFn: ({ signal }) => getMemberProfile(signal),
-    enabled: !!session,
+    enabled: !!session?.membership,
     meta: { requiresSession: true },
     // Do not replace a member's unsaved edits on focus; the session still revalidates.
     refetchOnWindowFocus: false,
   });
   if (!session) return null;
+  if (session.membership === null) return <OperationalAccount key={session.user.id} />;
   if (query.isPending) return <LoadingPanel>Memuat profil Anda…</LoadingPanel>;
   if (!query.data) return (
     <Card className="stack-medium">
@@ -51,6 +54,7 @@ export function ProfileScreen() {
         {!session.user.email_verified && session.membership?.status === "pending_verification" && <ResendButton />}
         <EmailChangeForm key={session.user.id} status={query.data.email_change} userId={session.user.id} />
       </Card>
+      <OwnPasswordControl key={session.user.id} />
       <p className="supporting"><Link href="/privacy" className="text-link">Pemberitahuan privasi</Link>{" · "}<Link href="/terms" className="text-link">Ketentuan komunitas</Link></p>
     </div>
   );

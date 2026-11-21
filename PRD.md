@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi | 1.5 |
-| Tanggal | 11 November 2026 |
+| Versi | 1.8 |
+| Tanggal | 21 November 2026 |
 | Status | Final — disetujui pemilik produk sebagai acuan pengembangan sorerunapp |
 | Nama produk | sorerunapp — Sore Running Club (SRC) |
 | Bahasa aplikasi | Bahasa Indonesia |
@@ -113,6 +113,7 @@ Ketentuan berikut sudah ditetapkan oleh pemilik produk dan menjadi acuan impleme
 | Member | Menggunakan keanggotaan dan mengikuti kegiatan | Profil sendiri, kartu QR, event internal, riwayat sendiri |
 | Petugas event | Mencatat peserta dengan cepat | Scanner, pencarian manual, dan daftar hadir pada event penugasan |
 | Admin | Mengelola komunitas | Anggota, status keanggotaan, event, penugasan, laporan, koreksi, audit |
+| Super Admin | Administrasi penuh dan provisioning akun operasional | Seluruh izin administratif Admin, serta pembuatan akun Admin dan kirim ulang undangan; aturan bisnis, ownership, status akun dan audit tetap berlaku |
 
 ### 5.1 Matriks izin MVP
 
@@ -128,9 +129,12 @@ Ketentuan berikut sudah ditetapkan oleh pemilik produk dan menjadi acuan impleme
 | Mengganti QR | Tidak; meminta bantuan admin | Tidak | Ya, dengan alasan |
 | Mengoreksi kehadiran | Tidak | Tidak; melaporkan ke admin | Ya, dengan alasan |
 | Mengekspor data | Tidak | Tidak | Ya, dengan audit |
-| Mengelola role/penugasan | Tidak | Tidak | Ya |
+| Mengelola penugasan petugas | Tidak | Tidak | Ya |
+| Mengelola draft, media dan publikasi landing page | Tidak | Tidak | Ya, akun enabled dan email terverifikasi; tidak mensyaratkan membership aktif |
 
 Role dapat digabung. Hak petugas hanya berlaku pada event yang ditugaskan. Status member tidak otomatis memberikan hak petugas. Pembatasan dilaksanakan pada backend untuk setiap request.
+
+Super Admin mewarisi seluruh izin administratif pada matriks, tetapi tidak memperoleh kartu/QR tanpa membership eligible. Hanya Super Admin membuat akun Admin dan mengirim ulang undangannya. Admin biasa tidak boleh membuat akun administratif atau memberikan Super Admin. Form provisioning menetapkan role Admin di server, menolak field role/status/pelaku dari client dan tidak mempromosikan email existing. Penetapan Super Admin pertama memakai bootstrap CLI satu kali dengan ID/email akun existing yang eksplisit, enabled dan terverifikasi; tanpa akun/password default atau registrasi publik.
 
 ## 6. Ruang lingkup produk
 
@@ -146,6 +150,7 @@ Role dapat digabung. Hak petugas hanya berlaku pada event yang ditugaskan. Statu
 - Pencegahan kehadiran ganda, koreksi kehadiran dengan audit.
 - Riwayat pribadi, daftar hadir, ringkasan dan ekspor CSV terbatas.
 - Logging administratif, pemantauan kegagalan email, backup dan pengujian pemulihan.
+- Landing page publik dan editor editorial admin terstruktur dengan draft bersama, preview privat dan publish manual; tanpa membuka event internal.
 
 ## 7. Data registrasi dan profil
 
@@ -164,6 +169,14 @@ Role dapat digabung. Hak petugas hanya berlaku pada event yang ditugaskan. Statu
 | Persetujuan promosi | Tidak diwajibkan | Jika ditambahkan, dipisahkan dari syarat pendaftaran |
 
 Kontak darurat belum termasuk data wajib MVP. NIK, foto KTP, alamat rinci, dan data kesehatan tidak dikumpulkan tanpa revisi kebutuhan yang jelas. Pilihan data wajib telepon/domisili dan kebijakan usia masih perlu ditinjau.
+
+Akun Admin operasional dari provisioning hanya memerlukan nama lengkap dan email. Tidak dibuat biodata anggota, membership, nomor member, QR, atau pengakuan kebijakan fiktif. Penerima membuktikan kepemilikan email dan menetapkan password melalui POST undangan khusus, bukan reset password. Undangan berlaku 24 jam; resend hanya Super Admin dengan cooldown 60 detik dan membatalkan proof sebelumnya. Akun belum diaktivasi tidak dapat login, termasuk setelah reset password. Setelah berhasil, login tetap melalui /login menuju /beranda tanpa auto-login. Akun dengan beberapa role dan membership tetap memakai fitur anggota sesuai eligibility.
+
+Super Admin dapat melihat daftar berhalaman akun ber-role Admin, termasuk akun lama dan multi-role, beserta nama, email, status akun serta verifikasi email. Akun yang dibuat melalui provisioning menyediakan akses status/resend undangan existing. Super Admin dapat menghapus secara logis Admin operasional yang hanya ber-role Admin dan tidak mempunyai profil anggota atau membership, setelah konfirmasi. Akun sendiri, Super Admin, dan akun multi-role dilindungi. Penghapusan memblokir login, mencabut role Admin/sesi/undangan, dan menghilangkan akun dari daftar; email tetap dicadangkan, data akun serta audit dipertahankan mengikuti kebijakan retensi. Tidak menyediakan pemulihan, purge data pribadi, direktori semua pengguna atau editor role/status. Admin biasa tidak dapat mengakses daftar maupun penghapusan.
+
+Member, Admin dan Super Admin dapat mengganti password sendiri melalui Profil dengan password akun saat ini, password baru minimal 12 karakter dan konfirmasi yang cocok. Pada Member, kontrol tersedia di Profil Anggota tanpa mensyaratkan membership aktif; syarat akun enabled/email terverifikasi tetap. Setelah berhasil seluruh sesi akun diakhiri dan pengguna login kembali. Super Admin juga dapat menetapkan password baru Admin enabled yang sudah diaktivasi/terverifikasi, tanpa konfirmasi email, dengan mengonfirmasi password Super Admin sendiri. Password lama Admin tidak diminta/dibaca. Sesi Admin sasaran diakhiri; sesi pelaku tetap aktif. Tidak tersedia perubahan password Super Admin lain atau Member lain melalui daftar. Perubahan ini tidak memverifikasi email, menyelesaikan aktivasi undangan, membuka blokir atau mengubah role/membership/nomor/QR/riwayat. Alur reset publik dan prosedur privasi tetap berlaku.
+
+Untuk bootstrap development lokal pertama ketika belum ada Super Admin, operator boleh menerbitkan undangan aktivasi awal melalui CLI dengan ID/email akun yang ditetapkan eksplisit. Target enabled, belum terverifikasi, tanpa role/profil/membership. Undangan 24 jam membuktikan email serta menetapkan password, tanpa memberikan role apa pun. Penerbitan ulang oleh operator memiliki cooldown 60 detik dan mencabut proof lama. Tidak ada endpoint publik untuk memilih/membuat calon Super Admin. Setelah aktivasi sah, bootstrap CLI terpisah tetap mensyaratkan akun terverifikasi dan hanya dapat selesai satu kali. Inbox lokal membuktikan alur development, bukan kepemilikan mailbox produksi.
 
 ## 8. Model status dan aturan bisnis
 
@@ -379,15 +392,21 @@ Semua requirement P0 wajib untuk rilis MVP. P1 dapat ditambahkan setelah alur in
 | FR-16 | P0 | Pengiriman dan monitoring email | Email dikirim setelah commit; kegagalan bisa dipantau dan diulang tanpa duplikasi keanggotaan |
 | FR-17 | P0 | Audit dan kontrol data | Perubahan penting mencatat pelaku/waktu/alasan; member/petugas tidak dapat mengubah audit |
 | FR-18 | P1 | Ringkasan partisipasi lanjutan | Pertumbuhan anggota dan frekuensi hadir mempunyai definisi/filter yang jelas |
+| FR-19 | P0 | Landing page publik komunitas | Root / terbuka untuk tamu maupun pengguna login; section tersedia mengikuti versi terpublikasi; CTA masuk tetap /login; tidak mengubah akses event internal |
+| FR-20 | P0 | Pengelolaan editorial admin | Admin enabled/verified menyimpan satu draft bersama, preview privat dan publish manual; konflik versi ditolak tanpa overwrite; publikasi snapshot dan audit atomik serta idempotent per versi |
+| FR-21 | P0 | Media dan SEO landing | Admin mengelola gambar/alt/caption dan SEO; JPEG/PNG/WebP maksimal 5 MB; draft/media draft tidak publik; media yang direferensikan tidak dapat dihapus |
+| FR-22 | P0 | Super Admin dan izin administratif | Role super_admin mewarisi izin administratif tanpa bypass ownership, eligibility, autentikasi atau audit; hanya Super Admin dapat melakukan provisioning Admin |
+| FR-23 | P0 | Provisioning dan aktivasi Admin operasional | Nama/email valid dan unik membuat akun unverified, role Admin, undangan serta outbox/audit atomik; idempotensi terikat pelaku/payload; aktivasi POST proof 24 jam dan password minimal 12 karakter; resend 60 detik hanya Super Admin; tanpa membership/QR |
+| FR-24 | P0 | Bootstrap Super Admin pertama | CLI dengan ID/email eksplisit, enabled/verified; satu kali dan aman paralel; role existing dipertahankan, auth_version naik, sesi dicabut dan audit tersimpan; tidak tersedia melalui form provisioning |
 
 ## 11. Halaman dan pengalaman pengguna
 
 | Area | Halaman MVP |
 | --- | --- |
-| Publik | Informasi komunitas, registrasi, login, lupa/reset password, verifikasi email, kirim ulang, hasil registrasi/verifikasi |
+| Publik | Landing informasi komunitas pada /, registrasi, login, lupa/reset password, verifikasi email, kirim ulang, hasil registrasi/verifikasi |
 | Member | Beranda/status aktivasi, profil, kartu QR, daftar/detail event, riwayat hadir, informasi status membership |
 | Petugas | Daftar event tugas, scanner event, preview anggota, hasil check-in, pencarian manual, daftar hadir |
-| Admin | Ringkasan, daftar/detail anggota, status/QR, daftar/form/detail event, penugasan, kehadiran/koreksi, laporan/ekspor, audit |
+| Admin | Editor landing dan preview privat; ringkasan, daftar/detail anggota, status/QR, daftar/form/detail event, penugasan, kehadiran/koreksi, laporan/ekspor, audit |
 
 Ketentuan UX:
 
@@ -399,6 +418,14 @@ Ketentuan UX:
 - Foto yang tidak tersedia ditandai jelas; petugas melakukan pemeriksaan manual yang proporsional.
 - Loading, empty state, validation error, session expired, dan retry tersedia pada alur utama.
 - Kartu serta endpoint yang memuat credential menggunakan kebijakan cache privat; aplikasi tidak menyimpan profil/QR anggota pada cache publik atau log analitik.
+
+### 11.1 Landing page dan editorial komunitas
+
+Header, hero, tentang komunitas, kegiatan/manfaat editorial, galeri, FAQ, kontak dan footer disusun oleh admin. Section opsional kosong/tersembunyi tidak tampil maupun menghasilkan navigasi kosong. Admin mengatur teks, label CTA/menu, foto, caption, alt text, urutan/visibility section serta SEO. Tujuan tombol masuk tetap /login; warna, font, permission dan konfigurasi autentikasi bukan konten editorial. Informasi kegiatan tidak mengambil data event internal, menambah RSVP atau pembayaran.
+
+Satu draft bersama dapat disimpan belum lengkap. Preview hanya untuk admin, memakai draft tersimpan; publish memvalidasi kelengkapan dan membentuk snapshot terpisah. Perubahan draft setelah publish tidak mengubah halaman publik. Versi lama yang dikirim admin menghasilkan konflik tanpa menimpa draft terbaru. Publikasi ulang versi sama tidak membuat revisi/audit ganda. Media yang dirujuk draft atau revisi yang dipertahankan tidak dapat dihapus.
+
+Sebelum publikasi pertama, tampilkan identitas SRC/sorerunapp, akses login dan informasi netral bahwa informasi komunitas belum dipublikasikan. Kegagalan layanan konten mempunyai state berbeda, bukan dianggap belum ada publikasi. Tidak mengarang statistik, testimoni, kontak, sponsor, jadwal, foto atau cerita founder; bahan contoh tidak dipublikasikan otomatis. Konten memakai teks biasa dan URL tervalidasi; admin tidak dapat memasukkan script/HTML atau mengubah tujuan login.
 
 ## 12. Model data konseptual dan integritas MySQL
 
@@ -529,11 +556,23 @@ Laporan membedakan registrasi pending, membership aktif, serta partisipasi. Keha
 | AC-23 | Login sebelum verifikasi dan sesi lama unverified | Kredensial benar ditolak 403 EMAIL_NOT_VERIFIED tanpa sesi login; password salah tetap 401 generik; sesi lama unverified ditolak/dicabut pada request privat berikutnya |
 | AC-24 | Tautan dibuka tanpa login | GET tidak mengubah data; POST konfirmasi dengan signature/expiry/email/version valid dan CSRF memverifikasi; respons publik tidak mengandung nomor member, profil, atau QR; setelah berhasil tetap perlu login |
 | AC-25 | Kirim ulang publik | Email tidak dikenal/sudah verified/blocked dan cooldown menerima respons generik sama; hanya akun pending yang eligible dijadwalkan; input invalid, CSRF, dan rate limit tetap diperiksa |
-| AC-26 | Navigasi login/logout | Root / menuju /login; tamu/sesi berakhir/logout menuju /login tanpa returnTo; semua login berhasil menuju /beranda, termasuk dari tautan login lama; parameter tujuan diabaikan dan dibersihkan |
+| AC-26 | Navigasi login/logout | Root / menampilkan landing page publik; tamu pada route privat/sesi berakhir/logout menuju /login tanpa returnTo; semua login berhasil menuju /beranda, termasuk dari tautan login lama; parameter tujuan diabaikan dan dibersihkan |
 | AC-27 | Perpindahan menu | Sesi valid dapat berpindah beranda/profil/kartu tanpa login ulang; halaman login tidak menampilkan banner sesi aktif atau tautan lanjut manual; login berhasil langsung menuju beranda |
 | AC-28 | Permintaan reset publik | Respons email dikenal/tidak dikenal/blocked/unverified serta cooldown sama; CSRF, validasi, dan limit IP/email tetap diperiksa; antrean tidak diklaim sebagai email terkirim |
 | AC-29 | Reset valid dan paralel | Password baru berlaku; token hanya satu kali; seluruh sesi akun terkait termasuk sesi yang terlambat tersimpan ditolak; tanpa auto-login atau perubahan verifikasi/blokir/membership/nomor/QR |
 | AC-30 | Reset gagal atau email terlambat | Token invalid/expired/bekas, password pendek, atau konfirmasi berbeda tidak mengubah data; kegagalan transaksi tidak menyisakan perubahan parsial; retry email tidak menerbitkan token pengganti; sesi akun lain tetap miliknya |
+| AC-31 | Landing untuk tamu/pengguna login | / tidak mengarahkan login otomatis; CTA tetap /login; navigasi section hanya untuk isi yang tersedia; tanpa publikasi dan kegagalan API dibedakan |
+| AC-32 | Draft, preview dan izin | Hanya admin enabled/verified/current boleh mengelola dan melihat draft/media draft; member/staff/tamu ditolak; membership aktif bukan syarat; draft tidak bocor melalui API/SEO/cache publik |
+| AC-33 | Simpan/publish paralel | Dua save versi sama maksimal satu berhasil; publish sama idempotent satu snapshot/audit; publish bersamaan save tidak menerbitkan versi yang tidak diminta; rollback tidak menyisakan publikasi parsial |
+| AC-34 | Media editorial | File/URL invalid ditolak; alt text gambar publik wajib; penggantian memakai file baru; media referenced terlindungi; kegagalan storage/database dan orphan dilaporkan serta dapat dipulihkan |
+| AC-35 | SSR, SEO dan regresi | Isi/metadata dari snapshot sama, tanpa cookie pengguna atau cache konten lintas request; draft baru tidak mengubah publikasi; dev/test/admin/auth/preview noindex; Sunset/keyboard/reduced motion/320 px sesuai desain; auth existing tidak berubah |
+| AC-36 | Hak administratif | Super Admin dapat mengelola landing serta provisioning; guest/member/staff/Admin biasa ditolak provisioning; blocked/unverified/stale tetap ditolak; role diperiksa ulang di transaksi |
+| AC-37 | Pembuatan dan retry | Akun/email unik; kunci sama dan payload sama tidak membuat akun/outbox baru; payload berbeda ditolak 409; email existing tidak dipromosikan; field role/status/pelaku ditolak. Daftar akun Admin berhalaman hanya tersedia bagi Super Admin; akun lama/multi-role tetap terlihat tanpa membuat undangan atau membership baru |
+| AC-38 | Aktivasi Admin | GET read-only; POST proof valid dan password terkonfirmasi mengaktifkan sekali, memverifikasi email, menaikkan auth_version, mencabut sesi dan audit atomik; token salah/expired/revoked/consumed/stale ditolak; tanpa auto-login |
+| AC-39 | Undangan dan reset | Resend terbatas Super Admin/cooldown 60 detik mencabut proof lama; reset password tidak memverifikasi atau mengaktifkan akun dan membuat proof undangan lama tidak berlaku; sesi akun lain tidak diganti |
+| AC-40 | Akun operasional | Provisioning/aktivasi tidak membuat profil anggota, membership, nomor/QR atau mengubah sequence; Beranda/Profil operasional tersedia; multi-role dengan membership mempertahankan fitur anggota |
+| AC-41 | Bootstrap sekali | Target ID/email wajib cocok, enabled/verified; aktivasi awal melalui proof khusus tidak memberi role dan tidak dapat saling menggantikan proof Admin/reset; kandidat terikat bootstrap pertama; dua aktivasi/bootstrap paralel maksimal satu berhasil; pengulangan ditolak walau role kemudian dicabut; role/membership existing tetap, seluruh sesi dicabut dan audit tersimpan |
+| AC-42 | Delivery dan rollback | Outbox setelah commit, pending sweep dan retry memakai proof terenkripsi yang sama tanpa token pada log/job terbuka; stale delivery tidak menghidupkan proof; kegagalan transaksi tidak meninggalkan akun/aktivasi parsial |
 
 ## 17. Risiko dan mitigasi
 
@@ -656,5 +695,8 @@ Frontend berkomunikasi dengan Laravel API. Satu repository tidak mengharuskan ke
 | 1.3 | 9 November 2026 | Melengkapi FR-03 melalui BP-11 dan AC-28–30 untuk pemulihan password publik, sesi, serta retry email. Status final. |
 | 1.4 | 10 November 2026 | Login berhasil langsung menuju beranda dengan loading selama transisi; banner sesi aktif dan aksi lanjut manual pada login dihapus sesuai instruksi pemilik produk. Status final. |
 | 1.5 | 11 November 2026 | Melengkapi AC-17 pada FR-04 sesuai persetujuan pemilik produk: konfirmasi perubahan email mencabut seluruh sesi dan memerlukan login ulang dengan email baru. BR-16/BR-17 dan status Final dipertahankan. |
+| 1.6 | 14 November 2026 | Landing publik dan editorial admin disetujui: FR-19–21, AC-31–35, revisi root pada AC-26. Auth lain, event internal dan status Final tetap. Implementasi belum terverifikasi melalui eksekusi. |
+| 1.7 | 21 November 2026 | Super Admin, provisioning Admin operasional melalui undangan dan bootstrap disetujui: FR-22–24/AC-36–42. Status Final tetap; implementasi disiapkan tanpa eksekusi pada sesi ini. |
+| 1.8 | 21 November 2026 | Melengkapi FR-24/AC-41 dengan aktivasi akun operasional pertama melalui proof email, tanpa role; bootstrap tetap terpisah. Persetujuan khusus development lokal, status Final dan ID requirement tetap. |
 
 Revisi tahap 7 — konfirmasi logout: klik tombol Keluar dari akun membuka dialog Ya, Keluar / Tidak. Hanya konfirmasi Ya, Keluar yang mengakhiri sesi. Tidak, Escape, atau menutup dialog mempertahankan sesi dan data anggota. Logout sukses menuju /login; penanganan kegagalan dan sesi berakhir tetap berlaku.

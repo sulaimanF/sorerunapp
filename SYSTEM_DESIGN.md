@@ -2,8 +2,8 @@
 
 | Atribut | Nilai |
 | --- | --- |
-| Versi dokumen | 1.6 |
-| Tanggal | 11 November 2026 |
+| Versi dokumen | 1.9 |
+| Tanggal | 21 November 2026 |
 | Produk | sorerunapp |
 | Komunitas | Sore Running Club (SRC) |
 | Jenis dokumen | Design system visual dan pedoman UI/UX |
@@ -360,7 +360,7 @@ Contoh helper password: 'Gunakan minimal 12 karakter.' Contoh error tanggal: 'Ma
 
 Tampilkan status event dan jendela check-in secara terpisah, misalnya 'Dipublikasikan · Check-in belum dibuka'. Kuota penuh bukan berarti event dibatalkan. QR terbaca bukan berarti anggota sudah hadir.
 
-## 11. Pola halaman member dan akun
+## 11. Pola halaman publik, member dan akun
 
 ### 11.1 Registrasi, login, dan verifikasi
 
@@ -431,6 +431,42 @@ Halaman `/verify-email-change` memakai layout auth dan judul **Konfirmasi email 
 Setelah berhasil, arahkan ke `/login` dengan pesan “Email berhasil diubah dan seluruh sesi telah diakhiri. Silakan masuk menggunakan email baru.” Pesan ini adalah konfirmasi hasil perubahan, bukan banner sesi aktif atau aksi lanjut manual. Login berikutnya tetap langsung ke beranda. Semua state memakai semantic tokens Sunset, kontrol minimum 44 px, fokus terlihat, error aksesibel, dan reflow 320 px; styling tambahan auth tetap di globals.css dengan prefix src-auth-.
 
 Riwayat menampilkan nama event, tanggal lokal, waktu hadir, status catatan, dan konteks pembatalan event bila ada. Tidak menyediakan tombol member untuk memulihkan attendance voided atau mengaktifkan kembali membership.
+
+### 11.5 Landing publik dan editor editorial
+
+Root / menyajikan halaman komunitas, terpisah layout form auth, dan dapat dibuka pengguna yang sudah login. Header menampilkan wordmark SRC/sorerunapp, navigasi section tersedia dan CTA Masuk ke Aplikasi menuju /login. Label CTA dapat diedit; tujuan tetap. Mobile memakai menu disclosure dengan label Menu halaman dan tombol masuk yang tetap terlihat. Login berhasil tetap langsung /beranda; logout/expiry tetap /login, tanpa returnTo/banner sesi aktif.
+
+Urutan komposisi: header → hero (headline/deskripsi/foto opsional/CTA) → section tentang/nilai, kegiatan/manfaat editorial, galeri, FAQ, kontak sesuai urutan admin → footer. Section opsional kosong atau disembunyikan tidak membuat ruang/nav kosong. Cerita founder hanya jika admin menyediakan bahan. Tidak mengarang statistik, kontak, foto, testimoni atau sponsor. Kegiatan adalah informasi editorial, tanpa CTA reservasi/RSVP atau pembukaan event internal.
+
+Warm Canvas/White dominan, teks Deep Brown, CTA Sunset dengan teks Deep Brown. Hero dua kolom pada desktop, menumpuk pada mobile; teks di bidang solid, gambar terpisah agar kontras stabil. Heading hero 32/48 px, font Plus Jakarta Sans, paragraf dibatasi, ritme section 48–64 px, padding mobile 16 px. Galeri grid tanpa autoplay; FAQ memakai disclosure keyboard. Layout reflow 320 px, kontrol minimum 44 px, fokus terlihat dan reduced motion mengikuti aturan global. Styling landing/editor dipusatkan di globals.css dengan prefix src-landing-/src-content-, tanpa mengubah styling auth existing.
+
+Sebelum publikasi pertama: identitas SRC, Selamat datang di sorerunapp, penjelasan Informasi komunitas belum dipublikasikan. Anda tetap dapat membuka aplikasi, serta CTA masuk. Loading bertuliskan Memuat informasi komunitas…. Error layanan memakai Informasi komunitas belum dapat dimuat, penjelasan gangguan dan Muat ulang halaman, bukan tampilan belum publikasi. Gambar gagal tidak menutup teks/tombol.
+
+Editor /admin/landing-page menampilkan versi draft dan publikasi, kelompok field sederhana, pustaka/upload gambar privat, alt/caption per penggunaan, kontrol naik/turun dan tampil/sembunyi section, FAQ dan kontak/SEO. Tidak ada editor HTML/page builder/tema bebas. Draft boleh belum lengkap; validasi/fokus/error terhubung ke field, input dipertahankan ketika gagal. Simpan Draft menampilkan versi baru; konflik menjelaskan draft berubah dan menawarkan Muat Ulang Draft Terbaru dengan peringatan mempertahankan salinan perubahan lokal. Gangguan/timeout tidak dianggap sukses atau diputar ulang otomatis. Cooldown memakai Retry-After.
+
+Navigasi editor minimum Stage 10 menggunakan tab akun Beranda, Kartu, Profil, dan Kelola Landing Page; tab editorial tampil untuk Admin dan Super Admin. Tab admin tetap tersedia dan aktif di editor maupun preview privat. Desktop memakai navigasi atas; empat tab admin memakai navigasi bawah sampai lebar 1024 px agar header tetap nyaman, dengan ruang konten yang tidak tertutup bar. Super Admin mempunyai akses tambahan Buat Admin; navigasi bawah sampai 1280 px. Kartu hanya ditawarkan jika akun mempunyai membership. Pengguna anggota non-admin tetap melihat tiga tab existing. Pola dasar disetujui 20 November 2026, diperluas secara minimum untuk Super Admin pada 21 November 2026.
+
+Preview Draft Tersimpan tersedia setelah perubahan disimpan; halaman preview diberi judul Preview privat dan versi draft, tanpa link berbagi publik. Publish memerlukan konfirmasi modal, loading/disabled, Batal, Escape/fokus kembali sesuai dialog existing. Sukses menampilkan versi yang diterbitkan. Pustaka menampilkan thumbnail privat, dimensi dan pilihan gambar; media yang dipakai draft/revisi tidak dapat dihapus. Penghapusan tertunda mempunyai aksi lanjut, tidak diklaim selesai. Admin tanpa hak mendapat Akses terbatas; sesi berakhir mengikuti login existing. Preview/admin/auth tidak diindeks.
+
+### 11.6 Super Admin, provisioning dan akun operasional
+
+Profil Anggota untuk Member serta Profil Admin/Super Admin (termasuk multi-role dengan membership) memiliki kartu **Keamanan Akun** dengan tombol **Ubah Password**; form awal tertutup. Pada Profil Anggota, kartu berada sebelum tautan privasi/ketentuan. Form berisi **Password Anda saat ini**, **Password baru**, **Konfirmasi password baru**, tampilkan/sembunyikan, paste/password manager, helper minimal 12 karakter/maksimal 72 byte, **Simpan Password Baru** dan **Batal Ubah Password** dengan gap 12 px. Jelaskan seluruh sesi akan diakhiri; sukses membuka /login dengan pesan password berubah dan login ulang, tanpa returnTo/auto-login. Pembatalan membersihkan nilai form. Staff tanpa role Member/Admin/Super Admin belum mendapatkan kontrol ini.
+
+Pada daftar Admin, Super Admin melihat **Ubah Password** dalam kelompok tombol akun yang eligible. Dialog **Ubah Password Admin** menampilkan sasaran dan menjelaskan tanpa konfirmasi email serta password current milik Super Admin, bukan password lama sasaran. Hanya Admin yang sudah teraktivasi/terverifikasi/enabled, bukan Super Admin, dapat dipilih. Loading **Menyimpan password…** mencegah submit ganda/penutupan dialog; error field terhubung/fokus, input dipertahankan, cooldown mengikuti Retry-After. Timeout mengunci pengiriman ulang dan meminta pemeriksaan hasil. Sukses menutup dialog, memberi pesan status, mempertahankan sesi Super Admin dan menjelaskan sesi sasaran diakhiri. Target sentuh 44 px, dialog dapat discroll pada 320 px, keyboard/fokus dan token Sunset tetap.
+
+Label role: Super Admin untuk super_admin, Admin untuk admin. /admin/accounts/new memakai shell existing, judul Buat Akun Admin, field Nama lengkap dan Email, informasi Role: Admin yang tidak dapat diedit, penjelasan undangan 24 jam tanpa password bawaan, serta tombol Buat Akun Admin. Akses hanya Super Admin; Admin lain mendapat Akses terbatas tanpa form atau menu provisioning. Tidak membangun dashboard/manajemen pengguna umum.
+
+Loading Membuat akun… mencegah submit ganda. Error field terhubung label/aria-describedby, fokus ke field pertama, input dipertahankan. Konflik email menjelaskan akun existing tidak diubah. Gangguan/timeout menunjukkan hasil belum pasti, mengunci data dan menawarkan Periksa Permintaan yang Sama dengan kunci idempotensi yang dipertahankan hanya di memori. Jangan menyatakan email terkirim: hasil Akun Admin dibuat menjelaskan undangan diterima untuk diproses, menampilkan nama/email/role, status aktivasi dan waktu kedaluwarsa, Periksa Status Undangan serta Kirim Ulang Undangan. Cooldown server memakai countdown/Retry-After; status aktif berarti aktivasi selesai. Tidak menyediakan selector Super Admin.
+
+Hasil pembuatan menyediakan Buka Halaman Status Undangan menuju /admin/accounts/{userId}/invitation, privat khusus Super Admin dan dapat dibuka ulang untuk status/resend tanpa membuat akun baru. Tidak menambahkan daftar pengguna umum.
+
+Daftar Akun Admin pada /admin/accounts hanya untuk Super Admin, dapat dibuka dari tombol pada Beranda operasional dan halaman Buat Akun Admin. Kartu berisi nama, email, role Admin, status akun dan verifikasi email; akun hasil provisioning memiliki tombol Status Undangan, akun lama menjelaskan bahwa tidak memakai undangan. Daftar berhalaman 20 akun, tombol Sebelumnya/Berikutnya, Perbarui Daftar, loading, error eksplisit dan kondisi kosong. Tombol destructive **Hapus Akun** di samping **Status Undangan**, flex wrap gap 12 px, hanya bagi Admin operasional yang boleh dihapus. Akun protected menampilkan penjelasan tanpa tombol hapus. Dialog **Hapus akun Admin?** menyebut target serta dampaknya: hilang dari daftar/tidak bisa login, sesi dan undangan dicabut, audit/email tetap disimpan dan email tidak dapat dipakai ulang; tidak ada pemulihan melalui halaman ini. Fokus awal Batal; Escape/pembatalan tidak mengirim DELETE. Konfirmasi **Ya, Hapus Akun** berubah **Menghapus akun…**, mencegah submit ganda/penutupan selama pending. Error tetap terlihat; hasil timeout meminta perbarui daftar sebelum mencoba lagi. Sukses memperbarui daftar dan memberi pesan status. Tidak menyediakan editor role/status umum atau purge data pribadi. Pada halaman status undangan, Buat Akun Admin berupa tombol outline dalam kelompok yang sama dengan Periksa Status Undangan dan Kirim Ulang Undangan: flex wrap, gap horizontal/vertikal 12 px dan kontrol minimum 44 px. Tautan Daftar Akun Admin tersedia untuk kembali. Navigasi mobile existing dipertahankan.
+
+/accept-admin-invitation memakai form auth existing: Password baru dan Konfirmasi password, tampilkan/sembunyikan, paste/password manager diizinkan, helper minimal 12 karakter, tombol Aktifkan Akun Admin. GET tidak mengaktifkan otomatis. Proof invalid/expired/revoked/used menjelaskan Hubungi Super Admin untuk undangan baru. Ada sesi akun lain: minta keluar dan membuka ulang tautan, tanpa mengganti identitas. Sukses menampilkan Akun Admin berhasil diaktifkan dan Masuk ke Akun menuju /login tanpa countdown/auto-login. Halaman admin dan aktivasi noindex.
+
+/activate-first-account memakai komponen aktivasi yang sama dengan judul/tombol **Aktifkan Akun Operasional**, penjelasan undangan 24 jam serta bahwa aktivasi tidak memberikan role Admin/Super Admin atau membership/QR. Proof hanya di memori dan segera dibersihkan dari URL. Loading Membaca undangan…/Mengaktifkan akun…, error inline, cooldown server, serta larangan mengganti sesi aktif mengikuti pola existing. Tautan hilang/invalid meminta menghubungi **operator**, bukan Super Admin yang belum tersedia. Sukses: **Akun operasional berhasil diaktifkan**, email/password telah dikonfirmasi, beri tahu operator untuk bootstrap terpisah; tombol Masuk ke Akun menuju /login tanpa auto-login/countdown. Halaman noindex, input berlabel, paste/password manager, kontrol 44 px, fokus dan 320 px tetap.
+
+Akun tanpa membership melihat Beranda konteks operasional dengan akses sesuai izin; Profil Akun menampilkan nama, email/verifikasi, label role dan perubahan email existing, tanpa biodata wajib anggota atau ajakan melengkapi membership. Akun multi-role dengan membership tetap memakai halaman anggota. Sunset, semantic tokens, Plus Jakarta Sans, kontrol minimal 44 px, fokus terlihat, live status dan reflow 320 px tetap berlaku; sediakan ruang bawah sesuai tinggi navigasi Super Admin.
 
 ## 12. Scanner dan operasi lapangan
 
@@ -521,7 +557,7 @@ Batal tersedia sebagai tindakan aman. Fokus awal tidak langsung pada tombol dest
 | Daftar kosong | Judul, alasan kontekstual, tindakan relevan |
 | Filter tanpa hasil | 'Tidak ada hasil untuk filter ini' dan Reset Filter |
 | Gagal mengambil data | Alert dengan Coba Lagi; konten privat tidak ditampilkan untuk akun lain |
-| Session expired | Hentikan aksi/kamera, bersihkan data privat, arahkan login dengan return path aman |
+| Session expired | Hentikan aksi/kamera, bersihkan data privat, arahkan /login tanpa returnTo sesuai navigasi autentikasi tetap |
 | Tidak berwenang | Halaman akses terbatas dan navigasi kembali yang sesuai |
 | 404 | Informasi tidak ditemukan tanpa detail internal |
 | Konflik bisnis | Pesan spesifik kuota/status; jangan memakai pesan server error umum |
@@ -749,3 +785,16 @@ Revisi tahap 7 — konfirmasi logout: dialog berjudul Keluar dari akun? dengan t
 | --- | --- | --- |
 | 1.6 | 11 November 2026 | Melengkapi §11.4 untuk form perubahan email, pending/expired, konfirmasi eksplisit, dan pesan login ulang setelah seluruh sesi diakhiri. Palet Sunset dan status Final dipertahankan. |
 | 1.6 (pembaruan UI) | 14 November 2026 | Sesuai permintaan pemilik produk, form perubahan email dibuka melalui tombol Ubah Email dan dapat dibatalkan; pemeriksaan status menampilkan loading lalu dialog hasil email aktif/pending/kedaluwarsa dan cooldown. |
+
+### 20.7 Revisi landing publik
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.7 | 14 November 2026 | Menambahkan §11.5 untuk landing publik, editor/preview, draft/publish serta state aksesibel. Root baru disetujui pemilik produk; palet Sunset dan status Final tetap. Belum diverifikasi melalui eksekusi. |
+
+### 20.8 Revisi Super Admin
+
+| Versi | Tanggal | Perubahan |
+| --- | --- | --- |
+| 1.8 | 21 November 2026 | §11.5–11.6 diperluas untuk izin/navigasi Super Admin, form Admin, aktivasi undangan dan akun operasional tanpa membership. Sunset/status Final tetap; belum diverifikasi melalui eksekusi. |
+| 1.9 | 21 November 2026 | §11.6 melengkapi form aktivasi awal tanpa role dan handoff bootstrap ke operator, menggunakan komponen/copy/state auth existing. Status Final tetap. |

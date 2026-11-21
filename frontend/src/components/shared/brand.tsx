@@ -3,6 +3,7 @@ export function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
     <Link
       href="/"
+      prefetch={false}
       className={`brand ${inverse ? "brand-inverse" : ""}`}
       aria-label="sorerunapp — Sore Running Club"
     >

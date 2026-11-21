@@ -28,6 +28,7 @@ export function isSessionRejection(error: unknown): boolean {
   return error instanceof ApiError && (
     error.status === 401 ||
     error.code === "ACCOUNT_BLOCKED" ||
+    error.code === "ADMIN_ACTIVATION_REQUIRED" ||
     error.code === "EMAIL_NOT_VERIFIED"
   );
 }

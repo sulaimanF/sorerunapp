@@ -54,6 +54,7 @@ export function LoginForm() {
         <p className="muted">Kartu dan keanggotaan Anda, dalam satu tempat.</p>
       </header>
       {auth.emailChangeNotice && <Alert tone="success">Email berhasil diubah dan seluruh sesi telah diakhiri. Silakan masuk menggunakan email baru.</Alert>}
+      {auth.passwordChangeNotice && <Alert tone="success">Password berhasil diubah dan seluruh sesi telah diakhiri. Silakan masuk menggunakan password baru.</Alert>}
       <form
         onSubmit={form.handleSubmit(submit)}
         noValidate

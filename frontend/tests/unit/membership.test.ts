@@ -168,9 +168,11 @@ test("logout/account switch removes private cached data", async () => {
   const client = createQueryClient();
   client.setQueryData(sessionKey, { user: { id: 1 } });
   client.setQueryData(["membership", "card", 1], { qr_payload: "synthetic" });
+  client.setQueryData(["auth", "account", 1], { email: "synthetic@example.test" });
   await clearPrivateQueries(client);
   assert.equal(client.getQueryData(sessionKey), null);
   assert.equal(client.getQueryData(["membership", "card", 1]), undefined);
+  assert.equal(client.getQueryData(["auth", "account", 1]), undefined);
   client.clear();
 });
 test("late private query responses cannot refill cache after account switch", async () => {

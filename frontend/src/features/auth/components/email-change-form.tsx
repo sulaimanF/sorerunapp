@@ -15,7 +15,7 @@ import { emailChangeSchema, requestEmailChange, type EmailChangeValues, type Ema
 import { useCountdown } from "../hooks/use-countdown";
 import { EmailChangeStatusDialog } from "./email-change-status-dialog";
 
-export function EmailChangeForm({ status, userId }: { status: EmailChangeStatus | null; userId: number }) {
+export function EmailChangeForm({ status, userId, scope = "profile" }: { status: EmailChangeStatus | null; userId: number; scope?: "profile" | "account" }) {
   const client = useQueryClient();
   const countdown = useCountdown();
   const [editing, setEditing] = useState(false);
@@ -24,7 +24,7 @@ export function EmailChangeForm({ status, userId }: { status: EmailChangeStatus 
   const [now, setNow] = useState(0);
   const pending = useRef<AbortController | null>(null);
   const form = useForm<EmailChangeValues>({ resolver: zodResolver(emailChangeSchema), defaultValues: { email: "", password: "" } });
-  const profileKey = ["members", "profile", userId];
+  const profileKey = scope === "account" ? ["auth", "account", userId] : ["members", "profile", userId];
   const sameAccount = () => client.getQueryData<BrowserSession | null>(sessionKey)?.user.id === userId;
   useEffect(() => () => pending.current?.abort(), []);
   const startCountdown = countdown.start;
@@ -117,7 +117,7 @@ export function EmailChangeForm({ status, userId }: { status: EmailChangeStatus 
           </form>
         </div>}
       </div>
-      <EmailChangeStatusDialog userId={userId} disabled={form.formState.isSubmitting} />
+      <EmailChangeStatusDialog userId={userId} disabled={form.formState.isSubmitting} scope={scope} />
     </section>
   );
 }

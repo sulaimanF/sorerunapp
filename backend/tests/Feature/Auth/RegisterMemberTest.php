@@ -24,6 +24,7 @@ use Illuminate\Testing\TestResponse;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
+use Tests\Support\ApprovedTestDatabase;
 use Tests\Support\EnforceCsrfInRegistrationTests;
 use Tests\TestCase;
 
@@ -40,7 +41,7 @@ final class RegisterMemberTest extends TestCase
 
         if (! app()->environment('testing')
             || $connection->getDriverName() !== 'mysql'
-            || $connection->getDatabaseName() !== 'sorerunapp_test'
+            || $connection->getDatabaseName() !== ApprovedTestDatabase::name()
             || config('cache.default') !== 'array') {
             throw new RuntimeException('Registration tests require testing + MySQL + sorerunapp_test + array cache.');
         }

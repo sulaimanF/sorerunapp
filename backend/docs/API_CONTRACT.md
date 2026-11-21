@@ -481,3 +481,273 @@ Outbox `email_change` memakai payload terenkripsi sementara `{request_id, token}
 Tautan dari FRONTEND_URL tepercaya menuju `/verify-email-change` dengan fragment request_id/email/token. GET halaman read-only; fragment dihapus dari address bar dan proof hanya di memori komponen. POST memerlukan klik eksplisit. Guest login memakai email aktif lama lalu membuka ulang email; tidak ada penyimpanan proof/returnTo atau pergantian identitas sesi. Sukses membersihkan cache privat dan menuju `/login` dengan pesan memakai email baru. Pesan sukses hanya memori, tidak memuat alamat/token dan tidak persisten setelah reload.
 
 Audit hanya menyimpan actor/target/request_id dan flag tindakan, tanpa alamat, password atau proof. Tidak mencatat body/fragment dalam log/analytics. Migration, SMTP/worker/scheduler, serta matriks verifikasi yang **belum dijalankan**: [EMAIL_CHANGE_STAGE09.md](../../docs/EMAIL_CHANGE_STAGE09.md).
+
+## Landing page dan editorial admin — tahap 10
+
+Status: implementasi disiapkan 14 November 2026; review dan pengujian terisolasi dilakukan 15 dan 20 November 2026. Migration Stage 10 tersedia pada MySQL `sorerunapp_test` (batch 4), **belum diterapkan pada database aplikasi**. Hasil aktual dan batas verifikasi: [LANDING_PAGE_STAGE10.md](../../docs/LANDING_PAGE_STAGE10.md). Acuan PRD FR-19–21/AC-31–35, ARCHITECTURE §11.8/12.4 dan SYSTEM_DESIGN §11.5.
+
+### Akses, transport dan pembatasan
+
+Base `/api/v1`. Endpoint `/public/landing-page` dan media publik adalah GET tanpa login/CSRF, tidak memilih draft atau mempersonalisasi respons. Next.js memanggil API publik dari server tanpa cookie pengguna. Semua endpoint admin membutuhkan sesi browser Sanctum stateful, origin frontend, akun enabled, email verified, auth_version terkini dan policy role admin; membership aktif tidak disyaratkan. Sebelum mutation browser mengambil `/sanctum/csrf-cookie`, mengirim cookie dan X-XSRF-TOKEN. Bearer/stateless bukan pengganti. GET admin juga memerlukan origin/session; tidak ada preview publik bertoken.
+
+Body save/publish berupa objek JSON ≤131072 byte/depth 16; field di luar whitelist ditolak. Upload memakai multipart/form-data dengan satu file `image` dan CSRF; jangan menetapkan boundary sendiri. Respons JSON memakai envelope `data`/`meta.request_id`, error memakai envelope existing dan X-Request-ID. Semua respons konten/media memakai no-store; admin/preview/media juga X-Robots-Tag noindex, nofollow. Tidak ada `returnTo`.
+
+Rate limit per IP/menit: GET publik 120, media 240; GET admin/preview/library 60, save 30, publish/upload/delete 10. Bucket route Laravel terpisah; 429 mempertahankan Retry-After. Tidak mengulang mutation otomatis pada timeout/419. Batas webserver/PHP upload perlu mendukung file 5 MB ditambah overhead multipart.
+
+### GET /public/landing-page
+
+Sukses 200 sebelum publikasi pertama:
+
+```json
+{"data":{"publication":null},"meta":{"request_id":"d6578996-20ac-4d4e-ab72-ef8d187fe122"}}
+```
+
+Setelah terbit, `data.publication` memuat `version` integer, `published_at` UTC ISO8601, `content` sesuai schema di bawah, dan `media` array descriptor `{id: UUID, url: URL API publik, mime: "image/webp", width: integer, height: integer}`. Field draft, actor, path, session, profil anggota, QR dan event internal tidak tersedia. Section hidden/kosong mempunyai isi kosong pada snapshot; semua referensi media di sini hanya milik snapshot terbit. Kegagalan database/schema tidak disamarkan sebagai publication null.
+
+### Schema content versi 1
+
+Request `PUT /admin/landing-page/draft`:
+
+```json
+{
+  "version": 0,
+  "content": {
+    "schema_version": 1,
+    "header": {"login_label":"Masuk ke Aplikasi","nav_labels":{"about":"Tentang","activities":"Kegiatan","gallery":"Galeri","faq":"FAQ","contact":"Kontak"}},
+    "hero": {"eyebrow":"","title":"","description":"","login_label":"Masuk ke Aplikasi","image":null},
+    "about": {"title":"","description":"","items":[]},
+    "activities": {"title":"","description":"","items":[]},
+    "gallery": {"title":"","items":[]},
+    "faq": {"title":"","items":[]},
+    "contact": {"title":"","description":"","email":"","phone":"","socials":[]},
+    "footer": {"text":""},
+    "seo": {"title":"","description":"","image":null},
+    "sections": [{"key":"about","visible":true},{"key":"activities","visible":true},{"key":"gallery","visible":true},{"key":"faq","visible":true},{"key":"contact","visible":true}]
+  }
+}
+```
+
+Contoh adalah draft kosong, bukan konten resmi yang siap dipublikasikan. Field schema wajib hadir; teks draft boleh kosong, dinormalisasi trim dan null teks menjadi string kosong. Semua objek memakai whitelist; tidak menerima URL CTA, HTML/JavaScript, CSS, permission, actor atau konfigurasi. Tombol header/hero selalu menuju /login.
+
+| Field | Batas/struktur |
+| --- | --- |
+| header.login_label / hero.login_label | 60 karakter; wajib tidak kosong saat publish |
+| header.nav_labels | Lima key section; masing-masing 40 karakter, wajib bila section tampil |
+| hero.eyebrow / title / description | 80 / 150 / 1000 karakter; title/description wajib saat publish |
+| about / activities | title 100, description 2000; maksimal 12 items `{title:100,description:1000}` |
+| gallery | title 100, maksimal 24 items gambar |
+| faq | title 100, maksimal 20 items `{question:200,answer:2000}` |
+| contact | title 100, description 1000, email valid maksimal 254, telepon maksimal 32 dengan digit/+()/spasi/hyphen; maksimal 8 socials `{label:60,url:500}` |
+| contact.socials.*.url | HTTPS, tanpa credential/kontrol/spasi; tidak di-fetch server |
+| footer.text | 500 karakter |
+| seo.title / description | 70 / 180 karakter, wajib saat publish |
+| hero.image / seo.image / gallery.items.* | null untuk hero/SEO atau `{media_id: UUID,alt:180,caption:300}`; gallery tidak menerima null; alt nonkosong wajib ketika gambar diterbitkan |
+| sections | Tepat lima key unik about/activities/gallery/faq/contact; urutan array menentukan susunan; visible boolean |
+
+Publish menyembunyikan section tanpa judul/isi yang cukup, meskipun visible true. Item pada section yang tampil harus lengkap. Semua UUID media draft wajib ada dan state ready, termasuk section yang disembunyikan. Caption/alt adalah bagian dokumen versi, bukan atribut global file.
+
+### Endpoint admin
+
+| Metode/path | Request dan sukses |
+| --- | --- |
+| GET /admin/landing-page | 200 `{version,content,published_version,published_at,media}`; versi awal 0, published_* null |
+| PUT /admin/landing-page/draft | `{version,content}`; 200 `{version: versi_baru}`; naik satu, audit content.draft_saved atomik |
+| GET /admin/landing-page/preview | 200 bentuk draft, content disaring seperti publikasi; 422 jika belum lengkap untuk ditampilkan sebagai calon publikasi; tetap privat/no-store |
+| POST /admin/landing-page/publish | `{version: integer}`; 200 `{version,published_at}`; snapshot/pivot/pointer/audit content.published atomik |
+| GET /admin/landing-page/media?page=1 | 200 `{items:[descriptor + state ready/deleting],page,last_page}`; 30 item/halaman, terbaru dahulu; page 1–100000 |
+| POST /admin/landing-page/media | multipart `image`; 201 descriptor media privat, audit content.media_uploaded |
+| GET /admin/landing-page/media/{UUID} | Byte gambar ready, membutuhkan sesi admin; tamu menerima envelope JSON 401 juga untuk Accept image/*, text/html atau */*, tanpa redirect login backend |
+| DELETE /admin/landing-page/media/{UUID} | CSRF, tanpa body diperlukan; 204 setelah file/row terhapus; audit permintaan penghapusan tanpa path |
+| GET /public/landing-page/media/{UUID} | Byte gambar ready yang dipakai publikasi aktif; selain itu 404 |
+
+Konflik save/publish terhadap draft_version terkini menghasilkan 409 CONTENT_VERSION_CONFLICT tanpa write parsial. Publish ulang versi yang masih sama idempotent; UNIQUE(page,version) menjaga revisi ganda. Editor perlu memuat ulang setelah hasil tak pasti, bukan menebak versi. Revisi terbit tidak mempunyai endpoint edit/delete.
+
+Upload menerima JPEG/PNG/WebP maksimal 5 MB, sisi 16–6000 px dan ≤16 megapixel. Isi/MIME/ekstensi diperiksa, SVG ditolak; GD WebP memproses ulang maksimal sisi 2400 px, kualitas 85, metadata dibuang. Memori decoder juga dibatasi. File hasil baru tidak menimpa file lain. Tidak ada URL storage internal atau EXIF di respons. Media referenced oleh draft atau revisi yang dipertahankan ditolak penghapusannya. Tombstone deleting memungkinkan retry kegagalan file; tidak dapat direferensikan draft baru. Orphan/commit tak pasti mengikuti prosedur tahap 10 tanpa cleanup massal.
+
+| HTTP / code | Kondisi |
+| --- | --- |
+| 400 INVALID_JSON; 413 PAYLOAD_TOO_LARGE; 415 UNSUPPORTED_MEDIA_TYPE | Format/body JSON tidak memenuhi batas |
+| 401 UNAUTHENTICATED / SESSION_EXPIRED | Tidak ada sesi pemilik atau versi sesi stale |
+| 403 FORBIDDEN / ACCOUNT_BLOCKED / EMAIL_NOT_VERIFIED | Tidak punya role admin atau guard akun menolak |
+| 404 NOT_FOUND | Media tidak tersedia/tidak dipublikasikan; tanpa path atau identitas pengunggah |
+| 409 CONTENT_VERSION_CONFLICT / MEDIA_IN_USE | Versi draft berubah / file masih direferensikan |
+| 419 CSRF_MISMATCH | Origin/session/CSRF tidak sah |
+| 422 VALIDATION_FAILED | Field/URL/media/kelengkapan publish tidak valid; field content.* atau image |
+| 429 RATE_LIMITED | Ikuti Retry-After |
+| 503 IMAGE_PROCESSOR_UNAVAILABLE / IMAGE_PROCESSING_FAILED | GD WebP belum tersedia atau pemrosesan gagal |
+| 503 MEDIA_STORAGE_UNAVAILABLE / MEDIA_DELETE_PENDING | Storage tidak tersedia / penghapusan perlu dilanjutkan |
+| 500/503 SERVER_ERROR / SERVICE_UNAVAILABLE | Kegagalan tersanitasi; jangan mengklaim sukses |
+
+## Super Admin dan provisioning Admin — tahap 11, 21 November 2026
+
+Status: kontrak diuji melalui feature/concurrency dan integrasi browser nyata pada database khusus sorerunapp_stage11_test. Schema juga sudah diterapkan pada development lokal sorerunapp, batch 7; bootstrap aplikasi serta smoke terautentikasi masih tertunda karena kandidat pertama belum terverifikasi. Hasil aktual dan batas verifikasi: docs/SUPER_ADMIN_STAGE11.md di root repository.
+
+### Role, sesi dan transport
+
+Roles pada GET /auth/me dapat memuat member, staff, admin, super_admin secara bersamaan. Super Admin memakai izin administratif bersama Admin, tetapi tidak melewati ownership, status, eligibility, CSRF atau audit. Hanya Super Admin current/enabled/verified/aktivasi selesai boleh provisioning/status/resend. Admin biasa 403 FORBIDDEN. Akun provisioning pending tidak dapat login atau memakai sesi privat: 403 ADMIN_ACTIVATION_REQUIRED; middleware mencabut sesi. Reset password tidak menyelesaikan aktivasi undangan.
+
+Semua mutation memakai Sanctum stateful, GET /sanctum/csrf-cookie, Origin frontend tepercaya, cookie dan X-XSRF-TOKEN. Tidak memakai bearer sebagai pengganti. JSON object maksimal 8192 byte/depth 8; query dan field tambahan ditolak. Respons envelope data/meta.request_id dan X-Request-ID existing; no-store, admin/aktivasi noindex. Tidak menerima role/status/actor_id/user_id/verification flags dari client.
+
+### GET /api/v1/admin/accounts
+
+Khusus Super Admin current/enabled/verified, dengan Sanctum session cookie dan Origin stateful tepercaya seperti endpoint privat lain. GET read-only tidak memerlukan token CSRF; mutation tetap wajib CSRF. Query opsional `page` integer 1–1000000 (default 1); field/query lain ditolak 422. Urutan ID menurun, 20 akun per halaman, termasuk akun Admin lama/multi-role dan blocked; tidak mencakup akun yang tidak mempunyai role Admin. Rate limit bersama baca status undangan: 60/menit/actor, 429 dengan Retry-After. 401 untuk guest/sesi stale; 403 untuk izin/status/verifikasi tidak memenuhi syarat. Respons no-store dan noindex.
+
+```json
+{
+  "data": {
+    "items": [{"user_id":123,"full_name":"Admin Uji","email":"admin-uji@example.test","account_status":"enabled","email_verified":false,"has_invitation":true,"can_delete":true,"can_change_password":false}],
+    "pagination": {"current_page":1,"last_page":1,"per_page":20,"total":1}
+  },
+  "meta": {"request_id":"4741bd90-1bdf-464f-9874-65ec278af437"}
+}
+```
+
+`has_invitation` menunjukkan record provisioning tersedia sehingga status undangan dapat dibuka, bukan bukti email terkirim atau proof masih valid. Akun lama tanpa provisioning bernilai false, tidak dibuatkan undangan otomatis. Daftar kosong/halaman melampaui data: items [], total sesuai seluruh akun Admin dan last_page minimal 1. Tidak memuat password/hash/token, role lain, membership, QR, actor/provisioning key atau payload outbox.
+
+### POST /api/v1/me/password dan POST /api/v1/admin/accounts/{userId}/password
+
+`/me/password`: Member/Admin/Super Admin current/enabled/verified untuk password sendiri, subjek hanya dari sesi (tidak menerima user_id client). Membership aktif tidak diperlukan untuk perubahan password sendiri. Route target: hanya Super Admin; target harus mempunyai role Admin, enabled, email terverifikasi dan aktivasi selesai, tanpa role Super Admin. Akun multi-role Admin+member tetap mengikuti aturan password ini tanpa mengubah membership. Target self melalui route target ditolak; gunakan /me/password. Member tidak dapat memakai route target untuk mengganti password akun lain. Tidak memberikan verifikasi email atau melewati undangan.
+
+Body JSON:
+
+```json
+{"current_password":"<password-pelaku-saat-ini>","password":"<password-baru-minimal-12-karakter>","password_confirmation":"<konfirmasi-yang-sama>"}
+```
+
+Contoh memakai placeholder, bukan credential. `current_password` milik pelaku (Super Admin untuk tindakan target). Password baru minimal 12 karakter, maksimal 72 byte dan tanpa null; konfirmasi wajib sama. Field role/status/subject/email/actor lain dan query ditolak 422. JSON object ≤8192 byte/depth 8, Sanctum session/Origin frontend tepercaya/X-XSRF-TOKEN wajib. Limit bersama 5/menit dan 20/jam/actor; 429 + Retry-After.
+
+204 tanpa body sesudah transaksi; no-store/noindex dan X-Request-ID. Hash baru/auth_version, pencabutan sesi/proof reset/pending email/undangan/delivery terkait serta audit atomik. Perubahan sendiri mengakhiri cookie saat ini; browser membersihkan cache privat dan menuju /login dengan notice password berubah. Perubahan target tidak mengganti/mengakhiri identitas pelaku. Tidak ada email konfirmasi, auto-login, token atau password dalam response/audit, maupun perubahan status/verifikasi/role/membership.
+
+Error envelope existing: 401 guest/sesi versi/hash pelaku berubah, 403 izin/status/verifikasi pelaku ditolak, 419 CSRF, 422 validasi atau `CURRENT_PASSWORD_INVALID` dengan `fields.current_password`, 404 target tidak ditemukan, 409 `ADMIN_PASSWORD_NOT_ALLOWED` untuk target tidak eligible/self/Super. Tidak mengulang POST otomatis setelah timeout; hasil dapat belum diketahui. Flag `can_change_password` pada GET daftar memandu tampilan tombol tetapi seluruh syarat diperiksa ulang saat POST.
+
+### DELETE /api/v1/admin/accounts/{userId}
+
+Hanya Super Admin dengan sesi current/enabled/verified; bukan bearer. Body JSON `{}`, tanpa query/field tambahan. Sanctum CSRF cookie/Origin tepercaya/X-XSRF-TOKEN wajib seperti mutation lain. Limit 10/menit/actor, 429 + Retry-After. 204 tanpa body setelah commit, no-store/noindex dan X-Request-ID existing. Client tidak mengulang mutation otomatis; timeout meminta periksa daftar dahulu.
+
+Penghapusan logis hanya bagi akun yang memiliki role Admin saja, tanpa profil anggota/membership. `can_delete` pada GET daftar menunjukkan eligibility saat baca, bukan izin final. Self/Super Admin/multi-role/akun anggota: 409 `ADMIN_DELETE_NOT_ALLOWED`, tanpa write. Akun tak ditemukan 404, guest/sesi stale 401, izin/status/verifikasi pelaku ditolak 403, CSRF 419, query/field tambahan 422, JSON rusak/bukan objek 400, content type bukan JSON 415, ukuran >8192 byte 413.
+
+Dalam transaksi: blokir akun, auth_version naik, role Admin/sesi/undangan/pending email-change/reset token/delivery tertunda dicabut dan audit dicatat. Record akun, email unique, provisioning/idempotensi serta audit historis dipertahankan; tidak ada hard delete, anonimisasi, penghapusan media/publikasi atau pemulihan melalui endpoint ini. Retry target blocked/roleless dengan audit penghapusan mengembalikan 204 tanpa audit/versi tambahan; setelah audit habis retensi, dapat 409 tanpa write. Replay POST provisioning terhadap akun ini 409 `ADMIN_ACCOUNT_DELETED`; email tetap konflik `EMAIL_UNAVAILABLE`. GET status undangan akun yang kehilangan role Admin 404. Tidak menghidupkan kembali akun lewat reset password.
+
+### POST /api/v1/admin/accounts
+
+Body:
+```json
+{
+  "full_name": "Admin Uji",
+  "email": "admin-uji@example.test",
+  "request_key": "07cc29ab-5043-434b-8dd8-ed9cc29e5837"
+}
+```
+
+Nama di-trim (2–150 karakter); email trim/lowercase (maksimal 254, RFC); UUID request_key dinormalisasi lowercase. Role selalu admin. Kunci unik per pelaku; payload nama/email ternormalisasi diikat hash. Retry kunci/payload sama mengembalikan akun serta status terkini tanpa akun/undangan/outbox/audit ganda; kunci sama/payload berbeda 409 IDEMPOTENCY_CONFLICT. Kunci baru dengan email existing 409 EMAIL_UNAVAILABLE, tanpa promosi akun existing. Tidak ada biodata anggota/membership/nomor/QR atau perubahan sequence.
+
+201, termasuk replay idempotensi:
+```json
+{
+  "data": {
+    "user_id": 123,
+    "full_name": "Admin Uji",
+    "email": "admin-uji@example.test",
+    "role": "admin",
+    "status": "pending",
+    "expires_at": "2026-11-22T10:00:00Z",
+    "retry_after": 60,
+    "activated_at": null
+  },
+  "meta": {"request_id": "4741bd90-1bdf-464f-9874-65ec278af437"}
+}
+```
+
+Respons hanya menyatakan akun dan undangan diterima untuk diproses; bukan email sudah terkirim. Password awal hash nilai acak yang dibuang. Target tidak dapat login sebelum menerima undangan.
+
+### GET /api/v1/admin/accounts/{userId}/invitation
+
+Super Admin saja. 200 dengan Resource sama. Hanya akun yang dibuat melalui provisioning dapat dibaca; target lain 404. status: pending, active (aktivasi selesai, bukan status enabled), expired, revoked, stale. retry_after adalah detik cooldown tersisa. Tidak memuat token/hash, provisioning key, pelaku, payload outbox atau path internal. Bukan endpoint daftar/manajemen seluruh pengguna.
+
+### POST /api/v1/admin/accounts/{userId}/invitation/resend
+
+Body JSON {}. 202 dengan Resource sama dan Retry-After. Cooldown 60 detik dari undangan terakhir: 429 dan Retry-After aktual. Target sudah diaktivasi, blocked, terverifikasi di luar aktivasi, atau role tidak sesuai: 409 INVITATION_NOT_AVAILABLE. Pending stale karena reset boleh menerima undangan baru setelah cooldown jika target tetap eligible. Proof/delivery lama dicabut; undangan baru 24 jam.
+
+### POST /api/v1/auth/admin-invitations/accept
+
+Publik stateful + CSRF, tanpa middleware login/verified. Browser yang sedang login ditolak 403 INVITATION_SESSION_CONFLICT tanpa logout, perubahan identitas, atau konsumsi proof. Halaman /accept-admin-invitation membaca fragment invitation_id/email/token, segera membersihkannya, menyimpan hanya di memori tab; GET tidak mengirim/mengonsumsi proof.
+
+Body (nilai proof hanya placeholder dokumentasi):
+```json
+{
+  "invitation_id": "221ad629-4676-47e6-a762-4edcffd2f785",
+  "email": "admin-uji@example.test",
+  "token": "<64 karakter hex dari undangan, bukan token contoh aktif>",
+  "password": "<password pilihan penerima minimal 12 karakter>",
+  "password_confirmation": "<konfirmasi yang sama>"
+}
+```
+
+Password mengikuti batas bcrypt existing: maksimal 72 byte, tanpa null, konfirmasi cocok. Validasi proof meliputi target, token SHA-256, email akun/undangan/payload, auth_version, expiry, consumed/revoked, provisioning pending, akun enabled/unverified dan role Admin, tanpa Super Admin. Error proof memakai 422 ADMIN_INVITATION_INVALID yang sama untuk invalid/expired/used/stale; validasi field 422 VALIDATION_FAILED. Transaksi menetapkan password/email_verified_at/activated_at, konsumsi proof, auth_version +1, remember token baru, pencabutan sessions/broker proof/delivery dan audit actor NULL berdasarkan email proof. Tidak menerbitkan sesi atau membership.
+
+200:
+```json
+{"data":{"result":"admin_activated"},"meta":{"request_id":"4741bd90-1bdf-464f-9874-65ec278af437"}}
+```
+
+Sesudah sukses pengguna menuju /login secara manual, login berhasil tetap /beranda; tanpa auto-login/returnTo. Proof invalid meminta undangan baru kepada Super Admin, bukan memakai reset untuk verifikasi.
+
+### GET /api/v1/me/account
+
+Sesi pemilik current/enabled/verified/aktivasi selesai. Tidak menerima parameter user_id atau query apa pun. 200:
+```json
+{
+  "data": {
+    "full_name": "Admin Uji",
+    "email": "admin-uji@example.test",
+    "email_verified": true,
+    "email_change": {"active_email":"admin-uji@example.test","retry_after":0,"pending":null}
+  },
+  "meta": {"request_id":"4741bd90-1bdf-464f-9874-65ec278af437"}
+}
+```
+
+email_change mengikuti kontrak tahap 09. Akun operasional menggunakan endpoint ini, tanpa GET/PATCH profil anggota atau pembuatan profil fiktif. POST perubahan email existing tetap memerlukan password dan kebijakan sesi tahap 09.
+
+### Limit, audit dan delivery
+
+Provisioning/resend dan accept: 5/menit/IP, 20/jam/IP, 10/jam/actor (guest IP), 5/jam/recipient; recipient email hash atau target ID pada resend. Baca undangan 60/menit/actor. 429 mempertahankan Retry-After; 400 JSON/query invalid, 413 payload, 415 content type, 419 CSRF, 401 session, 403 permission/status, 409 konflik, 422 validasi, 503 layanan. Tidak retry mutation otomatis pada 419/timeout.
+
+Audit whitelist: admin.account_created, admin.invitation_issued, admin.invitation_accepted, security.super_admin_bootstrapped; actor, target user, waktu dan request_id tanpa password/token/email penuh pada payload audit. Bootstrap CLI actor NULL. Outbox admin_invitation memakai payload_encrypted proof sementara; job hanya delivery ID. Retry/backoff/lease/sweep existing, tidak menerbitkan token baru atau melakukan SMTP dalam transaksi. Stale/expired/consumed/revoked dibatalkan; payload dibersihkan pada sent/cancelled/attempt terakhir. LocalMailScope untuk tipe normal tetap hanya @example.test melalui Mailpit/mail-local; pengecualian aktivasi awal yang terbatas dijelaskan di bawah.
+
+Tidak ada endpoint pembuatan Super Admin, promosi akun existing, role editor, penghapusan audit atau akses password/token. Bootstrap terpisah pada panduan operasional tahap 11.
+
+### Aktivasi akun operasional pertama — terpisah dari pemberian role
+
+Tidak ada endpoint penerbitan, resend, pembuatan akun, atau pemilihan kandidat awal. CLI lokal `admin:activate-first-account --user-id=… --email=…` memerlukan target eksplisit, enabled/unverified, tanpa role/profil/membership/provisioning serta fence bootstrap pertama yang belum selesai. Penerbitan pertama mengikat kandidat; ID/email lain ditolak. Undangan purpose `first_account_activation` berlaku 24 jam, cooldown CLI 60 detik dan maksimal lima penerbitan/jam/akun; resend mencabut proof/delivery lama. Perintah tidak mengeluarkan proof atau password. Pengiriman terkontrol memakai `admin:deliver-first-activation` dengan ID/email sama, queue database `mail-bootstrap`, SMTP Mailpit loopback saja. Tipe notifikasi normal tetap terbatas penerima sintetis pada development.
+
+`GET /activate-first-account` pada frontend hanya menampilkan form, noindex; fragment proof dihapus dari address bar dan disimpan di memori tab yang terpisah dari undangan Admin. Tidak ada efek aktivasi dari GET.
+
+`POST /api/v1/auth/first-account-activation/accept`
+
+Publik, tetap memerlukan Origin/Referer stateful, cookie sesi tamu dan XSRF dari `/sanctum/csrf-cookie`. JSON maksimal 8 KB; tidak menerima query/field tambahan (`role`, `purpose`, `status`, `actor_id`, `user_id`, `email_verified_at`). Field sama seperti accept undangan Admin:
+
+```json
+{
+  "invitation_id": "00000000-0000-4000-8000-000000000000",
+  "email": "initial@example.test",
+  "token": "<64 karakter hex dari undangan khusus, bukan proof aktif>",
+  "password": "<password pilihan penerima, minimal 12 karakter>",
+  "password_confirmation": "<konfirmasi yang sama>"
+}
+```
+
+Email trim/lowercase; password maksimal 72 byte tanpa null, konfirmasi cocok. Dalam transaksi lock user → fence → invitation, periksa purpose, issuer NULL, ID/email/token hash, versi akun, expiry, consumed/revoked, eligibility dan belum ada bootstrap/Super. Token Admin/reset tidak dapat digunakan untuk purpose ini; proof awal ditolak endpoint Admin/reset. Sesi yang sudah login ditolak 403 INVITATION_SESSION_CONFLICT dan identitasnya tetap. Invalid/expired/revoked/consumed/stale/blocked/bootstrap selesai memakai error aman yang sama: **422 FIRST_ACTIVATION_INVALID**. Field invalid memakai 422 VALIDATION_FAILED. CSRF 419; rate limit 429 dengan Retry-After (limit terpisah 5/menit/IP, 20/jam/IP, 10/jam/guest IP, 5/jam/recipient hash); JSON/type/size memakai 400/415/413 seperti undangan Admin.
+
+Sukses 200, Cache-Control no-store, X-Robots-Tag noindex,nofollow:
+
+```json
+{
+  "data": { "result": "first_account_activated" },
+  "meta": { "request_id": "00000000-0000-4000-8000-000000000000" }
+}
+```
+
+Finalisasi menetapkan password, email_verified_at, consumed_at, auth_version +1, rotasi remember token, menghapus sesi/broker proof, membatalkan proof/delivery terkait dan audit security.first_activation_accepted secara atomik. **Tidak memberikan role, permission, profil, membership, nomor atau QR; tidak auto-login.** Penerbitan diaudit security.first_activation_issued, actor NULL. Job hanya delivery ID dan proof retry sementara terenkripsi; retry tidak menerbitkan proof baru. Reset membatalkan undangan ini tanpa memverifikasi email.
+
+Setelah penerima sendiri menyelesaikan aktivasi, operator memeriksa status sebelum `admin:bootstrap-super` existing, tetap satu kali/enabled/verified dengan ID/email sama. Inbox Mailpit membuktikan alur lokal, bukan kepemilikan alamat produksi. Persyaratan dan hasil penerapan pada panduan Stage11.

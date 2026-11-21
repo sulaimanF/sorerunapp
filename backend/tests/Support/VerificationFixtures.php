@@ -21,7 +21,7 @@ trait VerificationFixtures
     {
         $db = DB::connection();
         if (! app()->environment('testing') || $db->getDriverName() !== 'mysql'
-            || $db->getDatabaseName() !== 'sorerunapp_test' || config('cache.default') !== 'array'
+            || $db->getDatabaseName() !== ApprovedTestDatabase::name() || config('cache.default') !== 'array'
             || ! str_starts_with((string) DB::selectOne('SELECT VERSION() AS version')->version, '8.4.')) {
             throw new RuntimeException('Stage05 tests require isolated MySQL 8.4 sorerunapp_test and array cache.');
         }

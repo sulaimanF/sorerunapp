@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\InvitationPurpose;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[Hidden(['token_hash', 'user_version'])]
+class AdminInvitation extends Model
+{
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
+    protected function casts(): array
+    {
+        return [
+            'purpose' => InvitationPurpose::class,
+            'user_version' => 'integer', 'expires_at' => 'immutable_datetime',
+            'consumed_at' => 'immutable_datetime', 'revoked_at' => 'immutable_datetime',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

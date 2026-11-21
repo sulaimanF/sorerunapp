@@ -13,7 +13,7 @@ export async function clearPrivateQueries(client: QueryClient, expectedUserId?: 
     const current = client.getQueryData<{ user: { id: number } } | null>(sessionKey);
     if (current && current.user.id !== expectedUserId) return false;
   }
-  client.removeQueries({ predicate: (query) => query.queryKey[0] !== "auth" });
+  client.removeQueries({ predicate: (query) => query.queryKey.length !== 2 || query.queryKey[0] !== sessionKey[0] || query.queryKey[1] !== sessionKey[1] });
   client.setQueryData(sessionKey, null);
   return true;
 }
