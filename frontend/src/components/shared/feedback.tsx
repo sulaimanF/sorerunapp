@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { AlertCircle, LoaderCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 export function Alert({
   children,
@@ -21,12 +22,14 @@ export function Alert({
 }
 export function LoadingPanel({
   children = "Memeriksa akun…",
+  compact = false,
 }: {
   children?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <div className="loading-panel" role="status">
-      <LoaderCircle className="spinner" aria-hidden size={24} />
+    <div className={compact ? "loading-inline" : "loading-panel"} role="status" aria-busy="true">
+      <Spinner size={compact ? 18 : 24} />
       <p>{children}</p>
     </div>
   );

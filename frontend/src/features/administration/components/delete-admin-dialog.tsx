@@ -56,7 +56,7 @@ export function DeleteAdminDialog({ userId, fullName, email, actorId, onDeleted 
         {problem && <Alert>{problem}</Alert>}
         <div className="flex flex-wrap gap-3">
           <Dialog.Close asChild><Button ref={cancel} variant="outline" disabled={pending}>Batal</Button></Dialog.Close>
-          <Button variant="destructive" disabled={pending} aria-busy={pending} onClick={() => void remove()}>{pending ? "Menghapus akun…" : "Ya, Hapus Akun"}</Button>
+          <Button variant="destructive" loading={pending} disabled={pending} aria-busy={pending} onClick={() => void remove()}>{pending ? "Menghapus akun…" : "Ya, Hapus Akun"}</Button>
         </div>
       </Dialog.Content>
     </Dialog.Portal>

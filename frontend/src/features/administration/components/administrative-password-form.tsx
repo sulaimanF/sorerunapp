@@ -104,7 +104,7 @@ function AdministrativePasswordForm({ actorId, targetId, onCancel, onChanged, on
       })}
     </fieldset>
     <div className="flex flex-wrap gap-3">
-      <Button type="submit" disabled={form.formState.isSubmitting || unknown || countdown.remaining > 0} aria-busy={form.formState.isSubmitting}>
+      <Button type="submit" loading={form.formState.isSubmitting} disabled={form.formState.isSubmitting || unknown || countdown.remaining > 0} aria-busy={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? "Menyimpan password…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : "Simpan Password Baru"}
       </Button>
       <Button type="button" variant="outline" disabled={form.formState.isSubmitting} onClick={onCancel}>Batal Ubah Password</Button>

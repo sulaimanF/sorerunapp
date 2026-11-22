@@ -142,11 +142,11 @@ export function ProfileEditor({ profile, userId }: { profile: MemberProfile; use
           </select>
         </FormField>
       </fieldset>
-      {outcomeUnknown && <Button type="button" variant="outline" disabled={busy} onClick={() => void checkSavedProfile()}>
+      {outcomeUnknown && <Button type="button" variant="outline" loading={checking} disabled={busy} onClick={() => void checkSavedProfile()}>
         {checking ? "Memeriksa data…" : "Periksa Data Tersimpan"}
       </Button>}
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={busy}>{form.formState.isSubmitting ? "Menyimpan…" : "Simpan Perubahan"}</Button>
+        <Button type="submit" loading={form.formState.isSubmitting} disabled={busy}>{form.formState.isSubmitting ? "Menyimpan…" : "Simpan Perubahan"}</Button>
         <Button type="button" variant="outline" disabled={busy || !form.formState.isDirty} onClick={() => {
           form.reset(profileValues(profile)); setProblem(null); setNotice("");
         }}>Batalkan Perubahan</Button>

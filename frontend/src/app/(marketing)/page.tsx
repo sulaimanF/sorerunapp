@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { LoadingPanel } from "@/components/shared/feedback";
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { readPublicLanding, publicSiteOrigin, landingIndexable } from "@/features/content/public-content";
@@ -38,5 +39,5 @@ async function PublishedLanding() {
 
 export default function Page() {
   // Uncached API work stays inside Suspense with Cache Components enabled.
-  return <Suspense fallback={<main id="main-content" className="src-landing-empty" role="status">Memuat informasi komunitas…</main>}><PublishedLanding /></Suspense>;
+  return <Suspense fallback={<main id="main-content" className="src-landing-loading"><LoadingPanel>Memuat informasi komunitas…</LoadingPanel></main>}><PublishedLanding /></Suspense>;
 }

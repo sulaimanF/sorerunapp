@@ -111,7 +111,7 @@ export function EmailChangeForm({ status, userId, scope = "profile" }: { status:
                   aria-invalid={!!form.formState.errors.password} aria-describedby={form.formState.errors.password ? "change-password-error" : undefined} {...form.register("password")} />
               </FormField>
             </fieldset>
-            <Button type="submit" disabled={form.formState.isSubmitting || countdown.remaining > 0}>
+            <Button type="submit" loading={form.formState.isSubmitting} disabled={form.formState.isSubmitting || countdown.remaining > 0}>
               {form.formState.isSubmitting ? "Memproses permintaan…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : "Kirim Verifikasi Email Baru"}
             </Button>
           </form>

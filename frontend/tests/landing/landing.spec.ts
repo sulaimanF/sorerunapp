@@ -14,6 +14,32 @@ async function signIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Halo, Admin Sintetis.", exact: true })).toBeVisible();
 }
 
+test("landing loading has a centered spinner, accessible status and reduced motion", async ({ page, request }) => {
+  await request.post(`${API}/__fixture/state`, { data: { holdPublic: true } });
+  try {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await page.goto("/", { waitUntil: "commit" });
+    const loading = page.getByRole("status").filter({ hasText: "Memuat informasi komunitas…" });
+    await expect(loading).toBeVisible();
+    await expect(loading).toHaveAttribute("aria-busy", "true");
+    const spinner = loading.locator(".spinner");
+    await expect(spinner).toBeVisible();
+    await expect(spinner).toHaveAttribute("aria-hidden", "true");
+    await expect(spinner).toHaveCSS("animation-name", "spin");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: ".next/loading-320.png" });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(spinner).toHaveCSS("animation-name", "none");
+    await expect(loading).toContainText("Memuat informasi komunitas…");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.screenshot({ path: ".next/loading-desktop.png" });
+  } finally {
+    await request.post(`${API}/__fixture/state`, { data: { holdPublic: false } });
+  }
+  await expect(page.getByRole("heading", { name: "Selamat datang di sorerunapp" })).toBeVisible();
+  await expect(page.locator(".src-landing-loading")).toHaveCount(0);
+});
+
 test("admin landing tab shares member navigation and stays active in editor and preview", async ({ page }) => {
   await signIn(page);
   const desktop = page.getByRole("navigation", { name: "Navigasi utama", exact: true });
@@ -114,7 +140,8 @@ test("editor manages editorial fields, section ordering and visibility through p
   await expect(page.getByText("Draft versi 1 berhasil disimpan.")).toBeVisible();
   await page.getByRole("button", { name: "Publikasikan", exact: true }).click();
   await page.getByRole("button", { name: "Ya, Publikasikan", exact: true }).click();
-  await expect(page.getByText(/berhasil dipublikasikan/)).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Publikasi berhasil", exact: true })).toBeVisible();
+  await page.getByRole("dialog", { name: "Publikasi berhasil", exact: true }).getByRole("button", { name: "Tutup", exact: true }).click();
   await page.goto("/");
   await expect(page).toHaveTitle("SEO editorial");
   await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "Deskripsi SEO editorial.");
@@ -134,6 +161,84 @@ test("editor manages editorial fields, section ordering and visibility through p
   await expect(page.getByRole("heading", { name: "Tentang tersembunyi" })).toHaveCount(0);
   expect(await page.locator("main > section[id]").evaluateAll(elements => elements.map(element => element.id))).toEqual(["activities", "gallery", "faq", "contact"]);
 });
+
+test("publication result popup waits for the server, prevents duplicate submission and restores focus", async ({ page, request }) => {
+  await signIn(page);
+  await page.goto("/admin/landing-page");
+  await page.setViewportSize({ width: 320, height: 900 });
+  let release = () => {};
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let requests = 0;
+  await page.route(`${API}/api/v1/admin/landing-page/publish`, async route => {
+    requests++;
+    await gate;
+    await route.fallback();
+  });
+  try {
+    await page.getByRole("button", { name: "Publikasikan", exact: true }).click();
+    const confirm = page.getByRole("dialog", { name: "Publikasikan landing page?", exact: true });
+    await expect(confirm.getByRole("button", { name: "Batal", exact: true })).toBeFocused();
+    await confirm.getByRole("button", { name: "Ya, Publikasikan", exact: true }).evaluate(button => {
+      if (!(button instanceof HTMLButtonElement)) throw new Error("Publish confirmation must be a button.");
+      button.click(); button.click();
+    });
+    await expect(confirm.getByRole("button", { name: "Menerbitkan…", exact: true })).toBeDisabled();
+    await expect(confirm.locator(".spinner")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(confirm).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Publikasi berhasil", exact: true })).toHaveCount(0);
+    expect((await (await request.get(`${API}/__fixture/state`)).json()).data.publication).toBeNull();
+    release();
+    const result = page.getByRole("dialog", { name: "Publikasi berhasil", exact: true });
+    await expect(result).toBeVisible();
+    await expect(result).toContainText("Draft versi 0 berhasil dipublikasikan.");
+    await expect(result.getByRole("button", { name: "Tutup", exact: true })).toBeFocused();
+    const bounds = await result.boundingBox();
+    if (!bounds) throw new Error("Publication result popup is missing.");
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+    expect(requests).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect(result).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Publikasikan", exact: true })).toBeFocused();
+  } finally { release(); }
+});
+
+for (const status of [422, 409, 429, 503, "network"] as const) {
+  test(`publication result popup handles ${status} without replaying or claiming success`, async ({ page, request }) => {
+    await signIn(page);
+    await page.goto("/admin/landing-page");
+    let requests = 0;
+    await page.route(`${API}/api/v1/admin/landing-page/publish`, route => {
+      requests++;
+      if (status === "network") return route.abort();
+      return route.fulfill({ status, headers: { "Access-Control-Allow-Origin": "http://localhost:3110", "Access-Control-Allow-Credentials": "true", "Access-Control-Expose-Headers": "Retry-After", ...(status === 429 ? { "Retry-After": "73" } : {}) }, json: {
+        error: { code: status === 422 ? "VALIDATION_FAILED" : status === 409 ? "CONTENT_VERSION_CONFLICT" : status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE", message: "Publikasi ditolak dalam pengujian sintetis.", fields: status === 422 ? { "content.hero.title": ["Lengkapi headline sebelum publikasi."] } : {} },
+        meta: { request_id: "b3618469-5e0b-4f70-a61b-78680e559b1c" },
+      } });
+    });
+    await page.getByRole("button", { name: "Publikasikan", exact: true }).click();
+    await page.getByRole("button", { name: "Ya, Publikasikan", exact: true }).click();
+    const unknown = status === 503 || status === "network";
+    const result = page.getByRole("dialog", { name: unknown ? "Status publikasi belum pasti" : "Publikasi gagal", exact: true });
+    await expect(result).toBeVisible();
+    await expect(result).toContainText(unknown ? "Hasil publikasi belum dapat dipastikan." : "Publikasi ditolak dalam pengujian sintetis.");
+    if (status === 422) await expect(result).toContainText("Lengkapi headline sebelum publikasi.");
+    await expect(result.getByRole("button", { name: "Tutup", exact: true })).toBeEnabled();
+    await result.getByRole("button", { name: "Tutup", exact: true }).click();
+    await expect(result).toHaveCount(0);
+    if (status === 422) {
+      await expect(page.locator("#content-hero-title")).toBeFocused();
+      await expect(page.locator("#content-hero-title")).toHaveAttribute("aria-invalid", "true");
+      await expect(page.locator("#content-hero-title")).toHaveValue("Komunitas untuk pengujian");
+    }
+    if (status === 409 || unknown) await expect(page.getByRole("button", { name: "Muat Ulang Draft Terbaru", exact: true })).toBeVisible();
+    if (status === 429) await expect(page.getByText(/Tunggu \d+ detik sebelum mencoba kembali/)).toBeVisible();
+    expect(requests).toBe(1);
+    expect((await (await request.get(`${API}/__fixture/state`)).json()).data.publication).toBeNull();
+    await expect(page.getByRole("dialog", { name: "Publikasi berhasil", exact: true })).toHaveCount(0);
+  });
+}
 
 for (const status of [429, 503]) {
   test(`draft error ${status} preserves input without replaying the mutation`, async ({ page, request }) => {
@@ -201,7 +306,8 @@ test("admin draft, private preview, publish, metadata and later draft remain sep
   await page.getByRole("link", { name: "Kembali ke Editor" }).click();
   await page.getByRole("button", { name: "Publikasikan", exact: true }).click();
   await page.getByRole("button", { name: "Ya, Publikasikan", exact: true }).click();
-  await expect(page.getByText(/berhasil dipublikasikan/)).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Publikasi berhasil", exact: true })).toBeVisible();
+  await page.getByRole("dialog", { name: "Publikasi berhasil", exact: true }).getByRole("button", { name: "Tutup", exact: true }).click();
   await page.getByLabel("Headline (opsional)", { exact: true }).fill("Draft yang belum diterbitkan");
   await page.getByRole("button", { name: "Simpan Draft", exact: true }).click();
   await expect(page.getByText(/Draft versi/).first()).toContainText("2");
@@ -249,6 +355,63 @@ test("published landing supports 320px, keyboard, FAQ and reduced motion", async
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 720, deviceScaleFactor: 2, mobile: false });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await page.getByRole("link", { name: "Masuk ke Aplikasi", exact: true }).first().evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+});
+
+test("hero photo spans the banner with readable overlay, private preview and safe image failure", async ({ page, request, context }) => {
+  // Synthetic bright image makes overlay contrast observable without any external photo.
+  const canvas = await context.newPage();
+  const image = Buffer.from(await canvas.evaluate(() => {
+    const image = document.createElement("canvas");
+    image.width = 1600; image.height = 900;
+    const drawing = image.getContext("2d");
+    if (!drawing) throw new Error("Synthetic image could not be created.");
+    const gradient = drawing.createLinearGradient(0, 0, 1600, 900);
+    gradient.addColorStop(0, "white"); gradient.addColorStop(0.5, "gold"); gradient.addColorStop(1, "orange");
+    drawing.fillStyle = gradient; drawing.fillRect(0, 0, 1600, 900);
+    return image.toDataURL("image/webp").split(",")[1];
+  }), "base64");
+  await canvas.close();
+  const url = `${API}/hero-synthetic.webp`;
+  await page.route(url, route => route.fulfill({ contentType: "image/webp", body: image }));
+  await page.route(`${API}/api/v1/admin/landing-page/media/${mediaId}`, route => route.fulfill({ contentType: "image/webp", body: image }));
+  const state = (await (await request.get(`${API}/__fixture/state`)).json()).data;
+  state.content.hero.image = { media_id: mediaId, alt: "Gambar hero sintetis", caption: "Gambar sintetis untuk memeriksa banner SRC." };
+  const media = [{ id: mediaId, mime: "image/webp", width: 1600, height: 900, url }];
+  await request.post(`${API}/__fixture/state`, { data: { content: state.content, media, publication: { version: 1, content: state.content, published_at: "2026-11-14T12:00:00Z", media } } });
+  await page.goto("/");
+  for (const width of [1440, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const hero = page.getByRole("region", { name: "Komunitas untuk pengujian" });
+    const photo = hero.getByAltText("Gambar hero sintetis");
+    await expect(photo).toBeVisible();
+    await expect(photo).toHaveCSS("object-fit", "cover");
+    await expect.poll(() => photo.evaluate(node => node instanceof HTMLImageElement && node.naturalWidth)).toBe(1600);
+    const banner = await hero.boundingBox();
+    const picture = await photo.boundingBox();
+    if (!banner || !picture) throw new Error("Hero or image is missing.");
+    expect(banner.x).toBe(0);
+    expect(banner.width).toBe(width);
+    expect(picture.width).toBeCloseTo(banner.width, 0);
+    expect(picture.height).toBeCloseTo(banner.height, 0);
+    const login = hero.getByRole("link", { name: "Masuk ke Aplikasi", exact: true });
+    await expect(login).toHaveAttribute("href", "/login");
+    await login.focus();
+    await expect(login).toBeFocused();
+    await expect(login).not.toHaveCSS("outline-style", "none");
+    await expect(hero.getByText("Gambar sintetis untuk memeriksa banner SRC.")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `.next/hero-banner-${width}.png` });
+  }
+  await signIn(page);
+  await page.goto("/admin/landing-page/preview");
+  const preview = page.locator(".src-landing-hero-cover");
+  await expect(preview.getByAltText("Gambar hero sintetis")).toHaveAttribute("src", /^blob:/);
+  await expect(preview.getByAltText("Gambar hero sintetis")).toHaveCSS("object-fit", "cover");
+  await page.goto("/");
+  await page.route(url, route => route.abort());
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Komunitas untuk pengujian" })).toBeVisible();
+  await expect(page.locator(".src-landing-hero-cover").getByRole("link", { name: "Masuk ke Aplikasi", exact: true })).toBeVisible();
 });
 
 test("failed public image leaves headline and login usable and root ignores a logged-in session", async ({ page, request }) => {

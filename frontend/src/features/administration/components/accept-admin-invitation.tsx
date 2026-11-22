@@ -92,7 +92,7 @@ export function AcceptAdminInvitationForm({ firstAccount = false }: { firstAccou
               aria-describedby={form.formState.errors.password_confirmation ? "admin-password-confirmation-error" : undefined} {...form.register("password_confirmation")} />
           </FormField>
         </fieldset>
-        <Button type="submit" disabled={form.formState.isSubmitting || countdown.remaining > 0}>
+        <Button type="submit" loading={form.formState.isSubmitting} disabled={form.formState.isSubmitting || countdown.remaining > 0}>
           {form.formState.isSubmitting ? "Mengaktifkan akun…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : firstAccount ? "Aktifkan Akun Operasional" : "Aktifkan Akun Admin"}
         </Button>
       </form>}

@@ -36,7 +36,7 @@ function AdminAccounts({ actorId }: { actorId: number }) {
       <p>Akun yang memiliki role Admin, termasuk akun yang belum diaktifkan. Keanggotaan terpisah dari role administratif.</p>
       <div className="flex flex-wrap gap-3">
         <Button asChild><Link href="/admin/accounts/new">Buat Akun Admin</Link></Button>
-        <Button variant="outline" disabled={query.isFetching} aria-busy={query.isFetching} onClick={() => void query.refetch()}>
+        <Button variant="outline" loading={query.isFetching} disabled={query.isFetching} aria-busy={query.isFetching} onClick={() => void query.refetch()}>
           {query.isFetching ? "Memuat daftar…" : "Perbarui Daftar"}
         </Button>
       </div>

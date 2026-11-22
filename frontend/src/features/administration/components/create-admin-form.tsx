@@ -105,7 +105,7 @@ function CreateAdminForm({ actorId }: { actorId: number }) {
           <p><strong>Role:</strong> Admin</p>
           <p className="supporting">Role ditetapkan server. Form ini tidak dapat membuat Super Admin dan tidak memakai password bawaan bersama.</p>
         </fieldset>
-        <Button type={unknown ? "button" : "submit"} disabled={creating || countdown.remaining > 0} aria-busy={creating}
+        <Button type={unknown ? "button" : "submit"} loading={creating} disabled={creating || countdown.remaining > 0} aria-busy={creating}
           onClick={unknown ? () => { if (attempt.current) void submit(attempt.current.values); } : undefined}>
           {creating ? "Membuat akun…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : unknown ? "Periksa Permintaan yang Sama" : "Buat Akun Admin"}
         </Button>
@@ -174,8 +174,8 @@ function InvitationStatus({ initial, actorId, showCreateAction = false }: { init
     </dl>
     {(problem || query.error) && <Alert>{problem ?? normalizeApiError(query.error).message}</Alert>}
     <div className="flex flex-wrap gap-3">
-      <Button type="button" variant="outline" disabled={query.isFetching || sending} onClick={() => void query.refetch()}>{query.isFetching ? "Memeriksa status…" : "Periksa Status Undangan"}</Button>
-      {status.status !== "active" && <Button type="button" disabled={sending || countdown.remaining > 0} onClick={() => void resend()}>
+      <Button type="button" variant="outline" loading={query.isFetching} disabled={query.isFetching || sending} onClick={() => void query.refetch()}>{query.isFetching ? "Memeriksa status…" : "Periksa Status Undangan"}</Button>
+      {status.status !== "active" && <Button type="button" loading={sending} disabled={sending || countdown.remaining > 0} onClick={() => void resend()}>
         {sending ? "Memproses undangan…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : "Kirim Ulang Undangan"}
       </Button>}
       {showCreateAction && <Button variant="outline" asChild><Link href="/admin/accounts/new">Buat Akun Admin</Link></Button>}

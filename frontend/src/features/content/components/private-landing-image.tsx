@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { LoadingPanel } from "@/components/shared/feedback";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -31,6 +32,8 @@ export function PrivateLandingImage({ id, alt, width, height }: { id: string; al
     });
     return () => { controller.abort(); if (url) URL.revokeObjectURL(url); };
   }, [id, actor, client]);
-  if (!result || result.id !== id || result.actor !== actor) return <p className="supporting">{failed === `${actor}:${id}` ? "Gambar belum dapat dimuat." : "Memuat gambar privat…"}</p>;
+  if (!result || result.id !== id || result.actor !== actor) return failed === `${actor}:${id}`
+    ? <p className="supporting">Gambar belum dapat dimuat.</p>
+    : <LoadingPanel compact>Memuat gambar privat…</LoadingPanel>;
   return <Image src={result.url} alt={alt} width={width} height={height} unoptimized />;
 }

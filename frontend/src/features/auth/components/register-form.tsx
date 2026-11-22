@@ -316,6 +316,7 @@ export function RegisterForm() {
         <Button
           type="submit"
           disabled={form.formState.isSubmitting || countdown.remaining > 0}
+          loading={form.formState.isSubmitting}
         >
           {form.formState.isSubmitting
             ? "Memproses pendaftaran…"

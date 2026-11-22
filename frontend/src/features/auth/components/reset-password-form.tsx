@@ -105,7 +105,7 @@ export function ResetPasswordForm() {
                 aria-describedby={form.formState.errors.password_confirmation ? "password_confirmation-error" : undefined} {...form.register("password_confirmation")} />
             </FormField>
           </fieldset>
-          <Button type="submit" disabled={form.formState.isSubmitting || countdown.remaining > 0}>
+          <Button type="submit" loading={form.formState.isSubmitting} disabled={form.formState.isSubmitting || countdown.remaining > 0}>
             {form.formState.isSubmitting ? "Menyimpan password…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : "Simpan Password Baru"}
           </Button>
         </form>

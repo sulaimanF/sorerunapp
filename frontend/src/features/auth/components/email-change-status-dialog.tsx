@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle } from "lucide-react";
 import { Alert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { getMemberProfile } from "@/features/members/services";
@@ -60,9 +59,8 @@ export function EmailChangeStatusDialog({ userId, disabled, scope = "profile" }:
       {problem && <Alert>{problem}</Alert>}
       <Dialog.Root open={snapshot !== null} onOpenChange={open => { if (!open) setSnapshot(null); }}>
         <Dialog.Trigger asChild>
-          <Button variant="outline" type="button" disabled={disabled || checking} aria-busy={checking}
+          <Button variant="outline" type="button" loading={checking} disabled={disabled || checking} aria-busy={checking}
             onClick={event => { event.preventDefault(); void checkStatus(); }}>
-            {checking && <LoaderCircle className="spinner" size={18} aria-hidden />}
             {checking ? "Memeriksa status email…" : "Periksa Status Email"}
           </Button>
         </Dialog.Trigger>

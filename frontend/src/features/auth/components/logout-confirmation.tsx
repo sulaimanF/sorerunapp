@@ -79,6 +79,7 @@ export function LogoutConfirmation() {
             <Button
               type="button"
               disabled={pending}
+              loading={pending}
               onClick={() => void confirmLogout()}
             >
               {pending ? "Mengakhiri sesi…" : "Ya, Keluar"}

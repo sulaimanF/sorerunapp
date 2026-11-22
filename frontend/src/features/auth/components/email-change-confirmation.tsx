@@ -88,7 +88,7 @@ export function EmailChangeConfirmation() {
             <p>Anda sedang menggunakan akun dengan email aktif <strong>{auth.session.user.email}</strong>.</p>
             <p>Email baru yang akan dikonfirmasi: <strong>{proof.email}</strong>.</p>
             <p className="supporting">Pastikan ini akun yang meminta perubahan. Konfirmasi akan mengakhiri seluruh sesi akun tersebut. Setelah berhasil, masuk kembali menggunakan email baru. Membership, nomor member, dan QR tetap.</p>
-            <Button type="submit" disabled={busy || countdown.remaining > 0}>{busy ? "Mengonfirmasi email…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : "Konfirmasi Email Baru"}</Button>
+            <Button type="submit" loading={busy} disabled={busy || countdown.remaining > 0}>{busy ? "Mengonfirmasi email…" : countdown.remaining ? `Tunggu ${countdown.remaining} detik` : "Konfirmasi Email Baru"}</Button>
           </form>}
       </>}
       <nav className="src-auth-secondary-links" aria-label="Bantuan perubahan email">

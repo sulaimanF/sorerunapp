@@ -61,7 +61,7 @@ export function VerificationScreen() {
       <p>Tekan tombol di bawah untuk mengonfirmasi alamat email Anda. Verifikasi ini tidak membuat Anda masuk ke akun secara otomatis.</p>
       {!intent && <Alert tone="warning">Tautan belum tersedia atau tidak valid. Buka kembali tautan dari email verifikasi Anda.</Alert>}
       {mutation.error && <Alert>{normalizeApiError(mutation.error).message}</Alert>}
-      {intent && <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+      {intent && <Button onClick={() => mutation.mutate()} loading={mutation.isPending}>
         {mutation.isPending ? "Memverifikasi…" : "Verifikasi Email"}
       </Button>}
       <nav className="src-auth-secondary-links" aria-label="Bantuan verifikasi email">

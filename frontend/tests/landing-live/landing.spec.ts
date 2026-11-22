@@ -63,7 +63,8 @@ test("real browser → Laravel → MySQL test → private storage → draft → 
     await expect(page.getByRole("button", { name: "Publikasikan", exact: true })).toBeFocused();
     await page.getByRole("button", { name: "Publikasikan", exact: true }).click();
     await page.getByRole("button", { name: "Ya, Publikasikan", exact: true }).click();
-    await expect(page.getByText(/berhasil dipublikasikan/)).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Publikasi berhasil", exact: true })).toBeVisible();
+    await page.getByRole("dialog", { name: "Publikasi berhasil", exact: true }).getByRole("button", { name: "Tutup", exact: true }).click();
     await page.locator("#content-hero-title").fill("Draft integrasi belum terbit");
     await page.getByRole("button", { name: "Simpan Draft", exact: true }).click();
     await expect(page.getByText("Draft versi 2 berhasil disimpan.")).toBeVisible();

@@ -43,7 +43,7 @@ export function ForgotPasswordForm() {
             aria-invalid={!!form.formState.errors.email} aria-describedby={form.formState.errors.email ? "email-error" : undefined}
             {...form.register("email")} />
         </FormField>
-        <Button type="submit" disabled={form.formState.isSubmitting || countdown.remaining > 0}>
+        <Button type="submit" loading={form.formState.isSubmitting} disabled={form.formState.isSubmitting || countdown.remaining > 0}>
           {form.formState.isSubmitting ? "Memproses permintaan…" : countdown.remaining ? `Kirim ulang dalam ${countdown.remaining} detik` : "Kirim Tautan Reset"}
         </Button>
       </form>

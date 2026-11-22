@@ -110,6 +110,7 @@ export function LoginForm() {
         <Link href="/forgot-password" className="text-link src-auth-forgot-link">Lupa password?</Link>
         <Button
           type="submit"
+          loading={form.formState.isSubmitting}
           disabled={form.formState.isSubmitting || countdown.remaining > 0}
         >
           {form.formState.isSubmitting
@@ -117,7 +118,7 @@ export function LoginForm() {
             : countdown.remaining
               ? `Tunggu ${countdown.remaining} detik`
               : "Masuk"}
-          <ArrowRight size={18} aria-hidden />
+          {!form.formState.isSubmitting && <ArrowRight size={18} aria-hidden />}
         </Button>
       </form>
       <footer className="src-auth-login-footer">

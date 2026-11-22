@@ -96,8 +96,9 @@ export function CardScreen() {
             void query.refetch();
           }}
           disabled={query.isFetching}
+          loading={query.isFetching}
         >
-          <RefreshCw size={18} aria-hidden />
+          {!query.isFetching && <RefreshCw size={18} aria-hidden />}
           {query.isFetching ? "Memperbarui…" : "Perbarui Kartu"}
         </Button>
       </header>

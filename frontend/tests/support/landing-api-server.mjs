@@ -30,6 +30,7 @@ const server = createServer(async (request, response) => {
     if (url.pathname === '/__fixture/state' && request.method === 'POST') { Object.assign(state, body); return send(200, {}); }
     if (url.pathname === '/sanctum/csrf-cookie') { response.setHeader('Set-Cookie', 'XSRF-TOKEN=fixture-csrf; Path=/; SameSite=Lax'); response.writeHead(204); response.end(); return; }
     if (url.pathname === '/api/v1/public/landing-page') {
+      while (state.holdPublic) await new Promise(resolve => setTimeout(resolve, 25));
       if (request.headers.cookie) state.publicCookie = true;
       if (state.failPublic) return fail(503, 'SERVICE_UNAVAILABLE');
       if (state.rotatePublic && state.publication) {

@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/shared/form-field";
 import { Alert, LoadingPanel } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
-import * as Dialog from "@radix-ui/react-dialog";
 import { Input } from "@/components/ui/input";
 import { useSession } from "@/providers/session-provider";
 import { clearPrivateQueries, sessionKey } from "@/lib/query-client";
@@ -18,6 +17,7 @@ import { isSessionRejection, normalizeApiError, ApiError } from "@/lib/errors";
 import { documentMediaIds, landingDocumentSchema, type LandingDocument, type LandingDraft, type LandingImage, type LandingMedia } from "../schemas";
 import { deleteLandingMedia, getLandingDraft, getLandingMedia, publishLandingDraft, saveLandingDraft, uploadLandingMedia } from "../services";
 import { PrivateLandingImage } from "./private-landing-image";
+import { PublishLandingDialog, type PublishResult } from "./publish-landing-dialog";
 import { useCountdown } from "@/features/auth/hooks/use-countdown";
 
 type EditorForm = UseFormReturn<LandingDocument>;
@@ -84,6 +84,7 @@ function LandingEditor({ draft, actor, reload }: { draft: LandingDraft; actor: n
   const busy = working || countdown.remaining > 0;
   const inFlight = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const values = useWatch({ control: form.control, compute: (content: LandingDocument) => content });
   const selectedIds = documentMediaIds(values);
   const media = [...new Map([...draft.media, ...extraMedia].map(file => [file.id, file])).values()];
@@ -99,7 +100,7 @@ function LandingEditor({ draft, actor, reload }: { draft: LandingDraft; actor: n
     return typeof value === "string" || typeof value === "boolean" || typeof value === "number";
   }
 
-  async function perform(action: () => Promise<void>) {
+  async function perform(action: () => Promise<void>, onFailure?: (error: ApiError) => void) {
     if (inFlight.current) return false;
     inFlight.current = true;
     setBusy(true); setProblem(null); setNotice("");
@@ -112,6 +113,7 @@ function LandingEditor({ draft, actor, reload }: { draft: LandingDraft; actor: n
           return false;
         }
         setProblem(parsed);
+        onFailure?.(parsed);
         if (parsed.status === 429) countdown.start(parsed.retryAfter || 60);
         let first: FieldPath<LandingDocument> | undefined;
         for (const [field, messages] of Object.entries(parsed.fields)) {
@@ -138,13 +140,27 @@ function LandingEditor({ draft, actor, reload }: { draft: LandingDraft; actor: n
     });
   }
 
-  async function publish() {
-    return perform(async () => {
+  async function publish(): Promise<PublishResult | null> {
+    let outcome: PublishResult | null = null;
+    await perform(async () => {
       const result = await publishLandingDraft(draft.version);
       if (!current()) return;
       client.setQueryData(["content", "draft", actor], { ...draft, published_version: result.version, published_at: result.published_at });
       setNotice(`Draft versi ${result.version} berhasil dipublikasikan.`);
+      outcome = { status: "success", message: `Draft versi ${result.version} berhasil dipublikasikan. Halaman publik kini menggunakan versi ini.`, fields: {} };
+    }, error => {
+      outcome = error.status === 0 || error.status >= 500
+        ? { status: "unknown", message: "Hasil publikasi belum dapat dipastikan. Periksa halaman publik dan muat ulang draft sebelum mencoba kembali. Permintaan tidak dikirim ulang otomatis.", fields: {} }
+        : { status: "error", message: error.message, fields: error.fields };
     });
+    return outcome;
+  }
+
+  function focusPublishResult(result: PublishResult): boolean {
+    const field = Object.keys(result.fields).map(path => path.replace(/^content\./, "")).find(isFieldPath);
+    if (field) { form.setFocus(field); return true; }
+    if (unknown) { heading.current?.focus(); return true; }
+    return false;
   }
 
   async function upload(file: File) {
@@ -159,7 +175,7 @@ function LandingEditor({ draft, actor, reload }: { draft: LandingDraft; actor: n
   }
 
   return <div className="stack-large">
-    <header className="stack-small"><p className="eyebrow text-brand">Administrasi konten</p><h1 className="page-heading">Kelola Landing Page</h1><p>Satu draft bersama admin. Perubahan baru terlihat pengunjung setelah dipublikasikan.</p></header>
+    <header className="stack-small"><p className="eyebrow text-brand">Administrasi konten</p><h1 ref={heading} tabIndex={-1} className="page-heading">Kelola Landing Page</h1><p>Satu draft bersama admin. Perubahan baru terlihat pengunjung setelah dipublikasikan.</p></header>
     <div className="card stack-small"><p>Draft versi <strong>{draft.version}</strong> · {draft.published_version === null ? "Belum ada publikasi" : `Publikasi versi ${draft.published_version}`}</p>
       {draft.published_at && <p className="supporting">Diterbitkan {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(draft.published_at))} WIB</p>}
       <p className="supporting">Field boleh belum lengkap saat disimpan sebagai draft. Publish memerlukan headline, deskripsi, label masuk, SEO, serta alt text gambar yang ditampilkan.</p>
@@ -208,9 +224,9 @@ function LandingEditor({ draft, actor, reload }: { draft: LandingDraft; actor: n
         </section>
         <section className="card stack-medium"><h2 className="text-heading-2">SEO</h2><TextField form={form} name="seo.title" label="Judul SEO" maxLength={70} /><TextField form={form} name="seo.description" label="Meta description" multiline maxLength={180} /><ImageFields form={form} prefix="seo.image" label="Gambar berbagi" media={media} value={values.seo.image} onChange={value => form.setValue("seo.image", value, { shouldDirty: true })} /></section>
       </fieldset>
-      <div className="src-landing-actions"><Button type="submit" disabled={busy || unknown}>{busy ? "Memproses…" : "Simpan Draft"}</Button>
+      <div className="src-landing-actions"><Button type="submit" loading={busy} disabled={busy || unknown}>{busy ? "Memproses…" : "Simpan Draft"}</Button>
         {!form.formState.isDirty && !busy && !unknown ? <Link href="/admin/landing-page/preview" className="button button-outline">Preview Draft Tersimpan</Link> : <span className="supporting">Simpan draft sebelum preview atau publish.</span>}
-        {!form.formState.isDirty && !unknown && <PublishButton disabled={busy} onPublish={publish} />}
+        <PublishLandingDialog available={!form.formState.isDirty && !unknown} disabled={busy} onPublish={publish} onResultClose={focusPublishResult} />
       </div>
     </form>
     <section className="card stack-medium" aria-labelledby="upload-title"><h2 id="upload-title" className="text-heading-2">Media privat landing</h2>
@@ -229,8 +245,8 @@ function MediaLibrary({ actor, disabled, onSelect }: { actor: number; disabled: 
   const [problem, setProblem] = useState("");
   const query = useQuery({ queryKey: ["content", "media", actor, page], queryFn: ({ signal }) => getLandingMedia(page, signal), meta: { requiresSession: true } });
   return <div className="stack-medium"><h3 className="text-heading-3">Pustaka media</h3>
-    <Button type="button" variant="outline" disabled={disabled || query.isFetching} onClick={() => void query.refetch()}>Perbarui pustaka</Button>
-    {query.isPending && <p role="status">Memuat pustaka media…</p>}
+    <Button type="button" variant="outline" loading={query.isFetching} disabled={disabled || query.isFetching} onClick={() => void query.refetch()}>Perbarui pustaka</Button>
+    {query.isPending && <LoadingPanel compact>Memuat pustaka media…</LoadingPanel>}
     {query.error && <Alert>{normalizeApiError(query.error).message}</Alert>}
     {problem && <Alert>{problem}</Alert>}
     {query.data?.items.length === 0 && <p>Belum ada gambar.</p>}
@@ -240,10 +256,4 @@ function MediaLibrary({ actor, disabled, onSelect }: { actor: number; disabled: 
     </div>)}
     <div className="src-landing-actions"><Button type="button" variant="outline" disabled={disabled || page === 1 || query.isFetching} onClick={() => setPage(value => value - 1)}>Media sebelumnya</Button><Button type="button" variant="outline" disabled={disabled || !query.data || page >= query.data.last_page || query.isFetching} onClick={() => setPage(value => value + 1)}>Media berikutnya</Button></div>
   </div>;
-}
-
-function PublishButton({ disabled, onPublish }: { disabled: boolean; onPublish: () => Promise<boolean> }) {
-  const [open, setOpen] = useState(false);
-  const cancel = useRef<HTMLButtonElement>(null);
-  return <Dialog.Root open={open} onOpenChange={value => { if (!disabled) setOpen(value); }}><Dialog.Trigger asChild><Button type="button" disabled={disabled}>Publikasikan</Button></Dialog.Trigger><Dialog.Portal><Dialog.Overlay className="dialog-overlay" /><Dialog.Content className="dialog-panel" onOpenAutoFocus={event => { event.preventDefault(); cancel.current?.focus(); }} onEscapeKeyDown={event => { if (disabled) event.preventDefault(); }} onInteractOutside={event => { if (disabled) event.preventDefault(); }}><Dialog.Title className="text-heading-3">Publikasikan landing page?</Dialog.Title><Dialog.Description>Draft tersimpan akan terlihat oleh pengunjung. Periksa kembali isi dan hak penggunaan gambar.</Dialog.Description><Button type="button" disabled={disabled} onClick={() => { void onPublish().then(() => setOpen(false)); }}>{disabled ? "Menerbitkan…" : "Ya, Publikasikan"}</Button><Dialog.Close asChild><Button ref={cancel} type="button" variant="outline" disabled={disabled}>Batal</Button></Dialog.Close></Dialog.Content></Dialog.Portal></Dialog.Root>;
 }

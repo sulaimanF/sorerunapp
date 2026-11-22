@@ -51,7 +51,7 @@ export function ResendVerificationForm() {
             aria-describedby={form.formState.errors.email ? "email-error" : undefined}
             {...form.register("email")} />
         </FormField>
-        <Button type="submit" disabled={form.formState.isSubmitting || countdown.remaining > 0}>
+        <Button type="submit" loading={form.formState.isSubmitting} disabled={form.formState.isSubmitting || countdown.remaining > 0}>
           {form.formState.isSubmitting ? "Memproses…" : countdown.remaining ? `Kirim ulang dalam ${countdown.remaining} detik` : "Kirim Ulang Email"}
         </Button>
       </form>

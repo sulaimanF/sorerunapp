@@ -8,6 +8,8 @@ import { ReloadLanding } from "./reload-landing";
 
 export function LandingView({ content, media, privateMedia = false }: { content: LandingDocument; media: LandingMedia[]; privateMedia?: boolean }) {
   const sections = visibleSections(content);
+  const heroImage = content.hero.image;
+  const heroFile = heroImage ? media.find(file => file.id === heroImage.media_id) : undefined;
   const Main = privateMedia ? "div" : "main";
   function picture(item: LandingImage | null, eager = false) {
     if (!item) return null;
@@ -27,8 +29,13 @@ export function LandingView({ content, media, privateMedia = false }: { content:
       {sections.length > 0 && <details className="src-landing-mobile-nav"><summary>Menu halaman</summary><nav aria-label="Navigasi section">{sections.map(({ key }) => <a href={`#${key}`} key={key}>{content.header.nav_labels[key]}</a>)}</nav></details>}
     </header>
     <Main id={privateMedia ? undefined : "main-content"}>
-      <section className="src-landing-hero src-landing-container" aria-labelledby="landing-title">
-        <div className="stack-medium">
+      <section className={`src-landing-hero${heroFile ? " src-landing-hero-cover" : ""}`} aria-labelledby="landing-title">
+        {heroFile && heroImage && <div className="src-landing-hero-backdrop">
+          {privateMedia ? <PrivateLandingImage key={heroFile.id} id={heroFile.id} alt={heroImage.alt} width={heroFile.width} height={heroFile.height} /> :
+            <Image src={heroFile.url} width={heroFile.width} height={heroFile.height} alt={heroImage.alt} sizes="100vw" loading="eager" unoptimized />}
+        </div>}
+        <div className="src-landing-container src-landing-hero-content">
+        <div className="stack-medium src-landing-hero-copy">
           {content.hero.eyebrow && <p className="eyebrow text-brand">{content.hero.eyebrow}</p>}
           <h1 id="landing-title">{content.hero.title}</h1>
           <p className="src-landing-lead">{content.hero.description}</p>
@@ -36,7 +43,9 @@ export function LandingView({ content, media, privateMedia = false }: { content:
             {sections.some(section => section.key === "about") && <a className="text-link" href="#about">{content.header.nav_labels.about}</a>}
           </div>
         </div>
-        {picture(content.hero.image, true)}
+        {heroFile && heroImage?.caption && <p className="src-landing-hero-caption">{heroImage.caption}</p>}
+        {!heroFile && heroImage && <p className="supporting">Gambar belum tersedia.</p>}
+        </div>
       </section>
       {sections.map(({ key }) => <section className={`src-landing-section src-landing-section-${key}`} id={key} aria-labelledby={`heading-${key}`} key={key}>
         <div className="src-landing-container stack-large">
@@ -49,8 +58,10 @@ export function LandingView({ content, media, privateMedia = false }: { content:
           {key === "faq" && <div className="src-landing-faq">{content.faq.items.map((item, index) => <details key={index}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div>}
           {key === "contact" && <div className="stack-medium">
             {content.contact.description && <p className="src-landing-prose">{content.contact.description}</p>}
-            {content.contact.email && <a className="text-link" href={`mailto:${content.contact.email}`}>{content.contact.email}</a>}
-            {content.contact.phone && <a className="text-link" href={`tel:${content.contact.phone.replace(/[^+0-9]/g, "")}`}>{content.contact.phone}</a>}
+            {(content.contact.email || content.contact.phone) && <div className="src-landing-actions">
+              {content.contact.email && <a className="text-link" href={`mailto:${content.contact.email}`}>{content.contact.email}</a>}
+              {content.contact.phone && <a className="text-link" href={`tel:${content.contact.phone.replace(/[^+0-9]/g, "")}`}>{content.contact.phone}</a>}
+            </div>}
             <div className="src-landing-actions">{content.contact.socials.map((item, index) => <a key={index} className="text-link" href={item.url} rel="noopener noreferrer" target="_blank">{item.label}<span className="sr-only"> (buka tab baru)</span></a>)}</div>
           </div>}
         </div>

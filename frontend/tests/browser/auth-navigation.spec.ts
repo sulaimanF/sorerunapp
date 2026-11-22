@@ -107,9 +107,12 @@ test("login stays in loading through a delayed navigation and never flashes a se
     await page.getByLabel(/^Password/).fill("Test-only-password-123");
     await page.getByRole("button", { name: "Masuk", exact: true }).click();
     await expect(page.getByRole("button", { name: "Memeriksa akun…", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Memeriksa akun…", exact: true })).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByRole("button", { name: "Memeriksa akun…", exact: true }).locator(".spinner")).toBeVisible();
     releaseLogin();
     await expect.poll(() => navigationRequested).toBe(true);
     await expect(page.getByRole("status")).toContainText("Memeriksa akun…");
+    await expect(page.getByRole("status").locator(".spinner")).toBeVisible();
     await expect(page.getByRole("form", { name: "Form login" })).toHaveCount(0);
     await expect(page.getByText(/Anda sedang masuk sebagai/)).toHaveCount(0);
     expect(loginRequests).toBe(1);
@@ -120,6 +123,29 @@ test("login stays in loading through a delayed navigation and never flashes a se
   } finally {
     releaseLogin();
     releaseNavigation();
+  }
+});
+
+test("email verification shows the shared spinner until the request completes", async ({ page, context }) => {
+  await fixtureApi(context, { active: false });
+  let release = () => {};
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await context.route(`${API}/api/v1/auth/email-verification/42/**`, async route => {
+    await gate;
+    await route.fallback();
+  });
+  try {
+    await page.goto(`/verify-email#verification=${encodeURIComponent(signed)}`);
+    await page.getByRole("button", { name: "Verifikasi Email", exact: true }).click();
+    const button = page.getByRole("button", { name: "Memverifikasi…", exact: true });
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute("aria-busy", "true");
+    await expect(button.locator(".spinner")).toBeVisible();
+    release();
+    await expect(page.getByRole("heading", { name: "Email terverifikasi" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Masuk ke Akun" })).toHaveAttribute("href", "/login");
+  } finally {
+    release();
   }
 });
 
